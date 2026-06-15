@@ -1,3 +1,4 @@
+// Prisma 7 — generator sem url no datasource (vai pra prisma.config.ts)
 generator client {
   provider = "prisma-client"
   output   = "../src/lib/prisma/generated"
@@ -6,6 +7,10 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
 
 enum OrgRole {
   ADMIN
@@ -41,15 +46,20 @@ enum SongLinkType {
   NONE
 }
 
+// ─────────────────────────────────────────
+// IDENTIDADE E ORGANIZAÇÃO
+// ─────────────────────────────────────────
+
 model User {
   id                String   @id @default(uuid())
   name              String
   email             String   @unique
   avatar_url        String?
   google_id         String   @unique
-  push_subscription Json?
+  push_subscription Json? // Web Push endpoint + keys
   created_at        DateTime @default(now())
 
+  // relações
   org_memberships OrganizationMember[]
   created_orgs    Organization[]       @relation("OrgCreator")
   created_events  Event[]              @relation("EventCreator")
@@ -72,9 +82,11 @@ model Organization {
   justifications_public       Boolean  @default(false)
   created_at                  DateTime @default(now())
 
+  // quem criou
   created_by String
   creator    User   @relation("OrgCreator", fields: [created_by], references: [id])
 
+  // relações
   members       OrganizationMember[]
   events        Event[]
   songs         Song[]
@@ -94,6 +106,7 @@ model OrganizationMember {
   joined_at       DateTime @default(now())
   is_active       Boolean  @default(true)
 
+  // relações
   user                   User                  @relation(fields: [user_id], references: [id])
   organization           Organization          @relation(fields: [organization_id], references: [id])
   slots                  ScheduleSlot[]
@@ -124,6 +137,10 @@ model InviteLink {
   @@map("invite_links")
 }
 
+// ─────────────────────────────────────────
+// EVENTOS E ESCALAS
+// ─────────────────────────────────────────
+
 model Event {
   id                    String   @id @default(uuid())
   organization_id       String
@@ -132,7 +149,7 @@ model Event {
   description           String?
   location              String?
   starts_at             DateTime
-  confirmation_deadline DateTime
+  confirmation_deadline DateTime // calculado: starts_at - org.confirmation_deadline_hours
   is_published          Boolean  @default(false)
   created_at            DateTime @default(now())
 
@@ -150,7 +167,7 @@ model ScheduleSlot {
   id         String  @id @default(uuid())
   event_id   String
   member_id  String
-  role_label String
+  role_label String // "Violão", "Baixo", "Bateria"...
   notes      String?
 
   event             Event              @relation(fields: [event_id], references: [id], onDelete: Cascade)
@@ -168,8 +185,8 @@ model Attendance {
   slot_id       String           @unique
   member_id     String
   status        AttendanceStatus @default(PENDING)
-  justification String?
-  responded_at  DateTime?
+  justification String? // obrigatório se DECLINED
+  responded_at  DateTime? // null se PENDING ou DEADLINE_MISSED
   created_at    DateTime         @default(now())
 
   slot   ScheduleSlot       @relation(fields: [slot_id], references: [id], onDelete: Cascade)
@@ -179,16 +196,20 @@ model Attendance {
   @@map("attendances")
 }
 
+// ─────────────────────────────────────────
+// TROCAS DE ESCALA
+// ─────────────────────────────────────────
+
 model SwapRequest {
   id                String     @id @default(uuid())
   organization_id   String
   requester_slot_id String
   target_slot_id    String
   requester_id      String
-  target_id         String?
-  reviewed_by       String?
+  target_id         String? // null = pedido aberto
+  reviewed_by       String? // líder que aprovou/negou
   status            SwapStatus @default(PENDING_TARGET)
-  message           String?
+  message           String? // justificativa do pedido
   rejection_reason  String?
   created_at        DateTime   @default(now())
   resolved_at       DateTime?
@@ -205,12 +226,16 @@ model SwapRequest {
   @@map("swap_requests")
 }
 
+// ─────────────────────────────────────────
+// TECH CHECK
+// ─────────────────────────────────────────
+
 model TechCheckItem {
   id              String   @id @default(uuid())
   event_id        String
   organization_id String
-  label           String
-  category        String?
+  label           String // "Cabo P10", "DI Box"...
+  category        String? // "Instrumentos", "Equipamento"...
   is_critical     Boolean  @default(false)
   created_by      String
   created_at      DateTime @default(now())
@@ -236,6 +261,10 @@ model TechCheckAssignment {
   @@map("tech_check_assignments")
 }
 
+// ─────────────────────────────────────────
+// LOUVORES
+// ─────────────────────────────────────────
+
 model Song {
   id              String       @id @default(uuid())
   organization_id String
@@ -260,7 +289,7 @@ model EventSong {
   event_id String
   song_id  String
   order    Int
-  notes    String?
+  notes    String? // tom, observação
 
   event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
   song  Song  @relation(fields: [song_id], references: [id])
@@ -270,15 +299,19 @@ model EventSong {
   @@map("event_songs")
 }
 
+// ─────────────────────────────────────────
+// GAMIFICAÇÃO E RELATÓRIO
+// ─────────────────────────────────────────
+
 model MemberStats {
   id                String   @id @default(uuid())
   member_id         String   @unique
   confirmed_on_time Int      @default(0)
   confirmed_late    Int      @default(0)
-  absences          Int      @default(0)
-  deadline_misses   Int      @default(0)
+  absences          Int      @default(0) // DECLINED
+  deadline_misses   Int      @default(0) // DEADLINE_MISSED
   swaps_requested   Int      @default(0)
-  swaps_accepted    Int      @default(0)
+  swaps_accepted    Int      @default(0) // cobriu outros
   reliability_score Float    @default(100)
   updated_at        DateTime @updatedAt
 
@@ -291,10 +324,10 @@ model Notification {
   id              String    @id @default(uuid())
   user_id         String
   organization_id String
-  type            String
+  type            String // SCHEDULE_PUBLISHED, SWAP_REQUEST, DEADLINE_REMINDER...
   title           String
   body            String
-  data            Json?
+  data            Json? // payload extra: event_id, swap_id pra deep link
   read_at         DateTime?
   sent_at         DateTime  @default(now())
 
