@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/lib/prisma/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrgRole {
+  ADMIN
+  LEADER
+  MEMBER
+}
+
+enum AttendanceStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  DEADLINE_MISSED
+  SWAPPED
+}
+
+enum SwapStatus {
+  PENDING_TARGET
+  PENDING_LEADER
+  APPROVED
+  REJECTED_TARGET
+  REJECTED_LEADER
+}
+
+enum CheckItemStatus {
+  PENDING
+  CHECKED
+  MISSING
+}
+
+enum SongLinkType {
+  SPOTIFY
+  YOUTUBE
+  NONE
+}
+
+model User {
+  id                String   @id @default(uuid())
+  name              String
+  email             String   @unique
+  avatar_url        String?
+  google_id         String   @unique
+  push_subscription Json?
+  created_at        DateTime @default(now())
+
+  org_memberships OrganizationMember[]
+  created_orgs    Organization[]       @relation("OrgCreator")
+  created_events  Event[]              @relation("EventCreator")
+  created_songs   Song[]               @relation("SongCreator")
+  created_items   TechCheckItem[]      @relation("ItemCreator")
+  invite_links    InviteLink[]         @relation("InviteLinkCreator")
+  reviewed_swaps  SwapRequest[]        @relation("SwapReviewer")
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+model Organization {
+  id                          String   @id @default(uuid())
+  name                        String
+  slug                        String   @unique
+  description                 String?
+  confirmation_deadline_hours Int      @default(48)
+  absences_public             Boolean  @default(true)
+  justifications_public       Boolean  @default(false)
+  created_at                  DateTime @default(now())
+
+  created_by String
+  creator    User   @relation("OrgCreator", fields: [created_by], references: [id])
+
+  members       OrganizationMember[]
+  events        Event[]
+  songs         Song[]
+  invite_links  InviteLink[]
+  swap_requests SwapRequest[]
+  notifications Notification[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id              String   @id @default(uuid())
+  user_id         String
+  organization_id String
+  role            OrgRole  @default(MEMBER)
+  nickname        String?
+  joined_at       DateTime @default(now())
+  is_active       Boolean  @default(true)
+
+  user                   User                  @relation(fields: [user_id], references: [id])
+  organization           Organization          @relation(fields: [organization_id], references: [id])
+  slots                  ScheduleSlot[]
+  attendances            Attendance[]
+  stats                  MemberStats?
+  swap_requests_sent     SwapRequest[]         @relation("SwapRequester")
+  swap_requests_received SwapRequest[]         @relation("SwapTarget")
+  tech_assignments       TechCheckAssignment[]
+
+  @@unique([user_id, organization_id])
+  @@map("organization_members")
+}
+
+model InviteLink {
+  id              String    @id @default(uuid())
+  organization_id String
+  created_by      String
+  token           String    @unique @default(uuid())
+  role_to_assign  OrgRole   @default(MEMBER)
+  expires_at      DateTime?
+  max_uses        Int?
+  uses_count      Int       @default(0)
+  created_at      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organization_id], references: [id])
+  creator      User         @relation("InviteLinkCreator", fields: [created_by], references: [id])
+
+  @@map("invite_links")
+}
+
+model Event {
+  id                    String   @id @default(uuid())
+  organization_id       String
+  created_by            String
+  title                 String
+  description           String?
+  location              String?
+  starts_at             DateTime
+  confirmation_deadline DateTime
+  is_published          Boolean  @default(false)
+  created_at            DateTime @default(now())
+
+  organization Organization    @relation(fields: [organization_id], references: [id])
+  creator      User            @relation("EventCreator", fields: [created_by], references: [id])
+  slots        ScheduleSlot[]
+  songs        EventSong[]
+  tech_items   TechCheckItem[]
+
+  @@index([organization_id, starts_at])
+  @@map("events")
+}
+
+model ScheduleSlot {
+  id         String  @id @default(uuid())
+  event_id   String
+  member_id  String
+  role_label String
+  notes      String?
+
+  event             Event              @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  member            OrganizationMember @relation(fields: [member_id], references: [id])
+  attendance        Attendance?
+  swap_as_requester SwapRequest[]      @relation("RequesterSlot")
+  swap_as_target    SwapRequest[]      @relation("TargetSlot")
+
+  @@unique([event_id, member_id])
+  @@map("schedule_slots")
+}
+
+model Attendance {
+  id            String           @id @default(uuid())
+  slot_id       String           @unique
+  member_id     String
+  status        AttendanceStatus @default(PENDING)
+  justification String?
+  responded_at  DateTime?
+  created_at    DateTime         @default(now())
+
+  slot   ScheduleSlot       @relation(fields: [slot_id], references: [id], onDelete: Cascade)
+  member OrganizationMember @relation(fields: [member_id], references: [id])
+
+  @@index([member_id, status])
+  @@map("attendances")
+}
+
+model SwapRequest {
+  id                String     @id @default(uuid())
+  organization_id   String
+  requester_slot_id String
+  target_slot_id    String
+  requester_id      String
+  target_id         String?
+  reviewed_by       String?
+  status            SwapStatus @default(PENDING_TARGET)
+  message           String?
+  rejection_reason  String?
+  created_at        DateTime   @default(now())
+  resolved_at       DateTime?
+
+  organization   Organization        @relation(fields: [organization_id], references: [id])
+  requester_slot ScheduleSlot        @relation("RequesterSlot", fields: [requester_slot_id], references: [id])
+  target_slot    ScheduleSlot        @relation("TargetSlot", fields: [target_slot_id], references: [id])
+  requester      OrganizationMember  @relation("SwapRequester", fields: [requester_id], references: [id])
+  target         OrganizationMember? @relation("SwapTarget", fields: [target_id], references: [id])
+  reviewer       User?               @relation("SwapReviewer", fields: [reviewed_by], references: [id])
+
+  @@index([organization_id, status])
+  @@index([target_id, status])
+  @@map("swap_requests")
+}
+
+model TechCheckItem {
+  id              String   @id @default(uuid())
+  event_id        String
+  organization_id String
+  label           String
+  category        String?
+  is_critical     Boolean  @default(false)
+  created_by      String
+  created_at      DateTime @default(now())
+
+  event       Event                 @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  creator     User                  @relation("ItemCreator", fields: [created_by], references: [id])
+  assignments TechCheckAssignment[]
+
+  @@map("tech_check_items")
+}
+
+model TechCheckAssignment {
+  id         String          @id @default(uuid())
+  item_id    String
+  member_id  String
+  status     CheckItemStatus @default(PENDING)
+  checked_at DateTime?
+
+  item   TechCheckItem      @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  member OrganizationMember @relation(fields: [member_id], references: [id])
+
+  @@unique([item_id, member_id])
+  @@map("tech_check_assignments")
+}
+
+model Song {
+  id              String       @id @default(uuid())
+  organization_id String
+  title           String
+  artist          String?
+  link_type       SongLinkType @default(NONE)
+  link_url        String?
+  thumbnail_url   String?
+  added_by        String
+  created_at      DateTime     @default(now())
+
+  organization  Organization @relation(fields: [organization_id], references: [id])
+  added_by_user User         @relation("SongCreator", fields: [added_by], references: [id])
+  event_songs   EventSong[]
+
+  @@index([organization_id])
+  @@map("songs")
+}
+
+model EventSong {
+  id       String  @id @default(uuid())
+  event_id String
+  song_id  String
+  order    Int
+  notes    String?
+
+  event Event @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  song  Song  @relation(fields: [song_id], references: [id])
+
+  @@unique([event_id, song_id])
+  @@index([event_id, order])
+  @@map("event_songs")
+}
+
+model MemberStats {
+  id                String   @id @default(uuid())
+  member_id         String   @unique
+  confirmed_on_time Int      @default(0)
+  confirmed_late    Int      @default(0)
+  absences          Int      @default(0)
+  deadline_misses   Int      @default(0)
+  swaps_requested   Int      @default(0)
+  swaps_accepted    Int      @default(0)
+  reliability_score Float    @default(100)
+  updated_at        DateTime @updatedAt
+
+  member OrganizationMember @relation(fields: [member_id], references: [id])
+
+  @@map("member_stats")
+}
+
+model Notification {
+  id              String    @id @default(uuid())
+  user_id         String
+  organization_id String
+  type            String
+  title           String
+  body            String
+  data            Json?
+  read_at         DateTime?
+  sent_at         DateTime  @default(now())
+
+  user         User         @relation(fields: [user_id], references: [id])
+  organization Organization @relation(fields: [organization_id], references: [id])
+
+  @@index([user_id, read_at])
+  @@index([organization_id])
+  @@map("notifications")
+}

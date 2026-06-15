@@ -1,0 +1,50 @@
+{
+  "name": "pulso-api",
+  "version": "0.1.0",
+  "description": "Pulso — worship team scheduling API",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "dotenv -e .env.dev -- tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "db:migrate": "dotenv -e .env.dev -- npx prisma migrate dev",
+    "db:migrate:prod": "npx prisma migrate deploy",
+    "db:studio": "dotenv -e .env.dev -- npx prisma studio",
+    "db:generate": "npx prisma generate",
+    "seed:demo": "dotenv -e .env.dev -- tsx prisma/seeds/demo.seed.ts",
+    "seed:dev": "dotenv -e .env.dev -- tsx prisma/seeds/dev.seed.ts",
+    "test": "dotenv -e .env.test -- vitest run",
+    "test:watch": "dotenv -e .env.test -- vitest",
+    "test:coverage": "dotenv -e .env.test -- vitest run --coverage",
+    "vapid:generate": "npx web-push generate-vapid-keys"
+  },
+  "dependencies": {
+    "@fastify/cookie": "latest",
+    "@fastify/cors": "latest",
+    "@fastify/helmet": "latest",
+    "@fastify/jwt": "latest",
+    "@prisma/adapter-pg": "latest",
+    "@prisma/client": "latest",
+    "dotenv": "latest",
+    "fastify": "latest",
+    "fastify-plugin": "^6.0.0",
+    "node-cron": "latest",
+    "pg": "latest",
+    "socket.io": "latest",
+    "web-push": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/node-cron": "latest",
+    "@types/pg": "latest",
+    "@types/web-push": "latest",
+    "@vitest/coverage-v8": "latest",
+    "dotenv-cli": "latest",
+    "prisma": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

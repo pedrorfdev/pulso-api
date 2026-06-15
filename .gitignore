@@ -1,0 +1,33 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+
+# Variáveis de ambiente — NUNCA commitar os reais
+.env
+.env.dev
+.env.test
+.env.production
+.env.local
+
+# Prisma — client gerado, não precisa versionar
+src/lib/prisma/generated/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
