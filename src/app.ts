@@ -6,6 +6,9 @@ import cookie from '@fastify/cookie'
 import jwt from '@fastify/jwt'
 import { env } from './lib/env.js'
 import { errorHandler } from './plugins/error-handler.js'
+import { authenticatePlugin } from './shared/middleware/authenticate.js'
+import { authRoutes } from './modules/auth/auth.routes.js'
+import { organizationRoutes } from './modules/organization/organization.routes.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -29,16 +32,18 @@ export async function buildApp() {
     },
   })
 
+  // ── plugins internos
+  await app.register(authenticatePlugin)
+
   // ── error handler global
   await errorHandler(app)
 
   // ── health check
   app.get('/health', async () => ({ status: 'ok', env: env.NODE_ENV }))
 
-  // ── módulos (serão registrados aqui nas fases seguintes)
-  // await app.register(authRoutes, { prefix: '/auth' })
-  // await app.register(organizationRoutes, { prefix: '/organizations' })
-  // ...
+  // ── módulos
+  await app.register(authRoutes, { prefix: '/auth' })
+  await app.register(organizationRoutes, { prefix: '/organizations' })
 
   return app
 }
