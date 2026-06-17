@@ -17,9 +17,16 @@ async function createTestUser(suffix = '1') {
 
 describe('OrganizationService', () => {
   beforeEach(async () => {
-    // ordem importa — respeita as foreign keys
-    // stats → invite_links → members → organizations → users
+    // ordem respeita todas as FKs do schema
     await prisma.memberStats.deleteMany()
+    await prisma.techCheckAssignment.deleteMany()
+    await prisma.techCheckItem.deleteMany()
+    await prisma.eventSong.deleteMany()
+    await prisma.song.deleteMany()
+    await prisma.swapRequest.deleteMany()
+    await prisma.attendance.deleteMany()
+    await prisma.scheduleSlot.deleteMany()
+    await prisma.event.deleteMany()
     await prisma.inviteLink.deleteMany()
     await prisma.organizationMember.deleteMany()
     await prisma.organization.deleteMany()
@@ -122,7 +129,6 @@ describe('OrganizationService', () => {
         data: {
           organization_id: org.id,
           created_by: admin.id,
-          // token único por execução pra não colidir entre runs
           token: `expired-token-${Date.now()}`,
           role_to_assign: 'MEMBER',
           expires_at: new Date(Date.now() - 1000),
@@ -147,7 +153,6 @@ describe('OrganizationService', () => {
         role_to_assign: 'MEMBER',
       })
 
-      // admin já é membro — tenta entrar de novo
       await expect(
         orgService.joinByInvite(admin.id, invite.token)
       ).rejects.toThrow(ConflictError)
