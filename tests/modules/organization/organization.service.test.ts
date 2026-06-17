@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { prisma } from '../../src/lib/prisma.js'
-import { OrganizationService } from '../../src/modules/organization/organization.service.js'
-import { ConflictError, NotFoundError } from '../../src/shared/errors/app-error.js'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { prisma } from '../../../src/lib/prisma.js'
+import { OrganizationService } from '../../../src/modules/organization/organization.service.js'
+import { ConflictError, NotFoundError } from '../../../src/shared/errors/app-error.js'
 
 const orgService = new OrganizationService(prisma)
 
-// ── helpers de seed local
 async function createTestUser(suffix = '1') {
   return prisma.user.create({
     data: {
@@ -17,14 +16,16 @@ async function createTestUser(suffix = '1') {
 }
 
 describe('OrganizationService', () => {
-  // limpa as tabelas relevantes antes de cada teste
   beforeEach(async () => {
+    // ordem importa — respeita as foreign keys
+    // stats → invite_links → members → organizations → users
+    await prisma.memberStats.deleteMany()
+    await prisma.inviteLink.deleteMany()
     await prisma.organizationMember.deleteMany()
     await prisma.organization.deleteMany()
     await prisma.user.deleteMany()
   })
 
-  // ── create
   describe('create', () => {
     it('deve criar uma org e adicionar o criador como ADMIN', async () => {
       const user = await createTestUser()
@@ -47,19 +48,30 @@ describe('OrganizationService', () => {
 
     it('deve lançar ConflictError se o slug já existe', async () => {
       const user = await createTestUser()
-      await orgService.create(user.id, { name: 'Org 1', slug: 'slug-unico', confirmation_deadline_hours: 48 })
+      await orgService.create(user.id, {
+        name: 'Org 1',
+        slug: 'slug-unico',
+        confirmation_deadline_hours: 48,
+      })
 
       await expect(
-        orgService.create(user.id, { name: 'Org 2', slug: 'slug-unico', confirmation_deadline_hours: 48 })
+        orgService.create(user.id, {
+          name: 'Org 2',
+          slug: 'slug-unico',
+          confirmation_deadline_hours: 48,
+        })
       ).rejects.toThrow(ConflictError)
     })
   })
 
-  // ── findBySlug
   describe('findBySlug', () => {
     it('deve retornar a org pelo slug', async () => {
       const user = await createTestUser()
-      await orgService.create(user.id, { name: 'Org Test', slug: 'org-test', confirmation_deadline_hours: 48 })
+      await orgService.create(user.id, {
+        name: 'Org Test',
+        slug: 'org-test',
+        confirmation_deadline_hours: 48,
+      })
 
       const org = await orgService.findBySlug('org-test')
       expect(org.slug).toBe('org-test')
@@ -70,11 +82,10 @@ describe('OrganizationService', () => {
     })
   })
 
-  // ── joinByInvite
   describe('joinByInvite', () => {
     it('deve adicionar membro via link de convite e incrementar uses_count', async () => {
       const admin = await createTestUser('admin')
-      const member = await createTestUser('member')
+      const newMember = await createTestUser('member')
 
       const org = await orgService.create(admin.id, {
         name: 'Org Invite',
@@ -82,18 +93,14 @@ describe('OrganizationService', () => {
         confirmation_deadline_hours: 48,
       })
 
-      const adminMember = await prisma.organizationMember.findFirst({
-        where: { user_id: admin.id },
-      })
-
       const invite = await orgService.createInviteLink(org.id, admin.id, {
         role_to_assign: 'MEMBER',
       })
 
-      const joined = await orgService.joinByInvite(member.id, invite.token)
+      const joined = await orgService.joinByInvite(newMember.id, invite.token)
 
       expect(joined.role).toBe('MEMBER')
-      expect(joined.user.id).toBe(member.id)
+      expect(joined.user.id).toBe(newMember.id)
 
       const updatedInvite = await prisma.inviteLink.findUnique({
         where: { token: invite.token },
@@ -103,7 +110,7 @@ describe('OrganizationService', () => {
 
     it('deve lançar ConflictError se convite expirou', async () => {
       const admin = await createTestUser('admin2')
-      const member = await createTestUser('member2')
+      const newMember = await createTestUser('member2')
 
       const org = await orgService.create(admin.id, {
         name: 'Org Exp',
@@ -111,19 +118,19 @@ describe('OrganizationService', () => {
         confirmation_deadline_hours: 48,
       })
 
-      // cria convite já expirado direto no banco
       const expired = await prisma.inviteLink.create({
         data: {
           organization_id: org.id,
           created_by: admin.id,
-          token: 'expired-token-test',
+          // token único por execução pra não colidir entre runs
+          token: `expired-token-${Date.now()}`,
           role_to_assign: 'MEMBER',
-          expires_at: new Date(Date.now() - 1000), // já expirou
+          expires_at: new Date(Date.now() - 1000),
         },
       })
 
       await expect(
-        orgService.joinByInvite(member.id, expired.token)
+        orgService.joinByInvite(newMember.id, expired.token)
       ).rejects.toThrow(ConflictError)
     })
 

@@ -12,7 +12,7 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url(),
   VAPID_PUBLIC_KEY: z.string(),
   VAPID_PRIVATE_KEY: z.string(),
-  VAPID_EMAIL: z.string().email(),
+  VAPID_EMAIL: z.string().startsWith('mailto:'),
 })
 
 const parsed = envSchema.safeParse(process.env)

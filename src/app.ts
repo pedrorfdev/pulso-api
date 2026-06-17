@@ -7,8 +7,10 @@ import jwt from '@fastify/jwt'
 import { env } from './lib/env.js'
 import { errorHandler } from './plugins/error-handler.js'
 import { authenticatePlugin } from './shared/middleware/authenticate.js'
+import { socketPlugin } from './plugins/socket.js'
 import { authRoutes } from './modules/auth/auth.routes.js'
 import { organizationRoutes } from './modules/organization/organization.routes.js'
+import { scheduleRoutes } from './modules/schedule/schedule.routes.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -26,14 +28,12 @@ export async function buildApp() {
   await app.register(cookie)
   await app.register(jwt, {
     secret: env.JWT_SECRET,
-    cookie: {
-      cookieName: 'token',
-      signed: false,
-    },
+    cookie: { cookieName: 'token', signed: false },
   })
 
   // ── plugins internos
   await app.register(authenticatePlugin)
+  await app.register(socketPlugin)
 
   // ── error handler global
   await errorHandler(app)
@@ -44,6 +44,7 @@ export async function buildApp() {
   // ── módulos
   await app.register(authRoutes, { prefix: '/auth' })
   await app.register(organizationRoutes, { prefix: '/organizations' })
+  await app.register(scheduleRoutes, { prefix: '/organizations' })
 
   return app
 }

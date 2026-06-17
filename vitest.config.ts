@@ -5,7 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: ['./tests/setup.ts'],
-    // roda testes em sequência — evita conflito no banco de teste
+    hookTimeout: 60_000,
     maxWorkers: 1,
     coverage: {
       provider: 'v8',
