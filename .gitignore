@@ -8,7 +8,7 @@ dist/
 .env
 .env.dev
 .env.test
-.env.production
+.env.prod
 .env.local
 
 # Prisma — client gerado, não precisa versionar

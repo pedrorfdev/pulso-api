@@ -41,7 +41,12 @@ function futureDate(daysAhead = 7) {
 
 describe('ScheduleService', () => {
   beforeEach(async () => {
-    await prisma.memberStats.deleteMany()
+     await prisma.memberStats.deleteMany()
+    await prisma.techCheckAssignment.deleteMany()
+    await prisma.techCheckItem.deleteMany()
+    await prisma.eventSong.deleteMany()
+    await prisma.song.deleteMany()
+    await prisma.swapRequest.deleteMany()
     await prisma.attendance.deleteMany()
     await prisma.scheduleSlot.deleteMany()
     await prisma.event.deleteMany()

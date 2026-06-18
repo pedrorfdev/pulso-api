@@ -120,32 +120,54 @@ export class SwapService {
       return this.toResponse(updated)
     }
 
-    // aprovado — troca os member_id nos slots e atualiza attendances
-    await this.db.$transaction([
-      // troca os membros nos slots
-      this.db.scheduleSlot.update({
-        where: { id: swap.requester_slot_id },
-        data: { member_id: swap.target_id! },
-      }),
-      this.db.scheduleSlot.update({
-        where: { id: swap.target_slot_id },
-        data: { member_id: swap.requester_id },
-      }),
-      // marca attendances como SWAPPED
-      this.db.attendance.updateMany({
-        where: { slot_id: { in: [swap.requester_slot_id, swap.target_slot_id] } },
-        data: { status: 'SWAPPED', responded_at: new Date() },
-      }),
-      // finaliza o swap
-      this.db.swapRequest.update({
-        where: { id: swapId },
+    // aprovado — troca os member_id nos slots
+    // problema: unique(event_id, member_id) é validado a cada UPDATE, não no commit
+    // solução: deleta os dois slots e recria com os member_id invertidos,
+    // preservando o id original via transação atômica
+    await this.db.$transaction(async (tx) => {
+      const [reqSlot, tgtSlot] = await Promise.all([
+        tx.scheduleSlot.findUniqueOrThrow({ where: { id: swap.requester_slot_id } }),
+        tx.scheduleSlot.findUniqueOrThrow({ where: { id: swap.target_slot_id } }),
+      ])
+
+      // remove os dois slots (cascata apaga as attendances junto)
+      await tx.scheduleSlot.deleteMany({
+        where: { id: { in: [reqSlot.id, tgtSlot.id] } },
+      })
+
+      // recria com member_id invertido, mantendo o mesmo id e role_label
+      const newReqSlot = await tx.scheduleSlot.create({
         data: {
-          status: 'APPROVED',
-          reviewed_by: reviewerUserId,
-          resolved_at: new Date(),
+          id: reqSlot.id,
+          event_id: reqSlot.event_id,
+          member_id: tgtSlot.member_id,
+          role_label: reqSlot.role_label,
+          notes: reqSlot.notes,
         },
-      }),
-    ])
+      })
+      const newTgtSlot = await tx.scheduleSlot.create({
+        data: {
+          id: tgtSlot.id,
+          event_id: tgtSlot.event_id,
+          member_id: reqSlot.member_id,
+          role_label: tgtSlot.role_label,
+          notes: tgtSlot.notes,
+        },
+      })
+
+      // recria as attendances como SWAPPED pros novos donos do slot
+      await tx.attendance.create({
+        data: { slot_id: newReqSlot.id, member_id: newReqSlot.member_id, status: 'SWAPPED', responded_at: new Date() },
+      })
+      await tx.attendance.create({
+        data: { slot_id: newTgtSlot.id, member_id: newTgtSlot.member_id, status: 'SWAPPED', responded_at: new Date() },
+      })
+
+      await tx.swapRequest.update({
+        where: { id: swapId },
+        data: { status: 'APPROVED', reviewed_by: reviewerUserId, resolved_at: new Date() },
+      })
+    })
 
     const updated = await this.db.swapRequest.findUniqueOrThrow({
       where: { id: swapId },

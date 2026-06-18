@@ -40,7 +40,8 @@ export class NotificationService {
           type: payload.data?.type ?? 'GENERAL',
           title: payload.title,
           body: payload.body,
-          data: payload.data ?? null,
+          // omite o campo em vez de passar null — Prisma JSON não aceita null literal aqui
+          ...(payload.data ? { data: payload.data } : {}),
         })),
     })
   }
