@@ -8,8 +8,14 @@ import { env } from './lib/env.js'
 import { errorHandler } from './plugins/error-handler.js'
 import { authenticatePlugin } from './shared/middleware/authenticate.js'
 import { socketPlugin } from './plugins/socket.js'
+import { startDeadlineJob } from './jobs/deadline.job.js'
+import { startStatsJob } from './jobs/stats.job.js'
+
 import { authRoutes } from './modules/auth/auth.routes.js'
 import { organizationRoutes } from './modules/organization/organization.routes.js'
+import { notificationRoutes } from './modules/organization/notification.routes.js'
+import { pushRoutes } from './modules/organization/push.routes.js'
+import { statsRoutes } from './modules/organization/stats.routes.js'
 import { scheduleRoutes } from './modules/schedule/schedule.routes.js'
 import { swapRoutes } from './modules/swap/swap.routes.js'
 import { songRoutes } from './modules/song/song.routes.js'
@@ -20,6 +26,7 @@ export async function buildApp() {
     logger: { level: env.NODE_ENV === 'test' ? 'silent' : 'info' },
   })
 
+  // ── segurança
   await app.register(helmet)
   await app.register(cors, { origin: env.FRONTEND_URL, credentials: true })
   await app.register(cookie)
@@ -28,18 +35,34 @@ export async function buildApp() {
     cookie: { cookieName: 'token', signed: false },
   })
 
+  // ── plugins internos
   await app.register(authenticatePlugin)
   await app.register(socketPlugin)
   await errorHandler(app)
 
+  // ── health check
   app.get('/health', async () => ({ status: 'ok', env: env.NODE_ENV }))
 
+  // ── auth
   await app.register(authRoutes, { prefix: '/auth' })
+
+  // ── push — SEM prefix, rotas /push/* ficam na raiz
+  await app.register(pushRoutes)
+
+  // ── módulos escopados por organização — TODOS com prefix '/organizations'
   await app.register(organizationRoutes, { prefix: '/organizations' })
+  await app.register(notificationRoutes, { prefix: '/organizations' })
+  await app.register(statsRoutes, { prefix: '/organizations' })
   await app.register(scheduleRoutes, { prefix: '/organizations' })
   await app.register(swapRoutes, { prefix: '/organizations' })
   await app.register(songRoutes, { prefix: '/organizations' })
   await app.register(techCheckRoutes, { prefix: '/organizations' })
+
+  // ── cron jobs (não roda em ambiente de teste)
+  if (env.NODE_ENV !== 'test') {
+    startDeadlineJob()
+    startStatsJob()
+  }
 
   return app
 }

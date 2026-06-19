@@ -1,38 +1,12 @@
 import type { FastifyInstance } from 'fastify'
-import { z } from 'zod'
 import { prisma } from '../../lib/prisma.js'
 import { NotificationService } from './notification.service.js'
 import { requireRole } from '../../shared/middleware/require-role.js'
-import { env } from '../../lib/env.js'
 
-const SubscribeBody = z.object({
-  subscription: z.object({
-    endpoint: z.string().url(),
-    keys: z.object({
-      p256dh: z.string(),
-      auth: z.string(),
-    }),
-  }),
-})
-
+// rotas de notificação ESCOPADAS por organização
+// registrar com prefix: '/organizations'
 export async function notificationRoutes(app: FastifyInstance) {
   const notifService = new NotificationService(prisma)
-
-  // GET /push/vapid-public-key — front precisa disso pra registrar o service worker
-  app.get('/push/vapid-public-key', async (_req, reply) => {
-    return reply.send({ publicKey: env.VAPID_PUBLIC_KEY })
-  })
-
-  // POST /push/subscribe — salva subscription do dispositivo
-  app.post(
-    '/push/subscribe',
-    { preHandler: [app.authenticate] },
-    async (req, reply) => {
-      const { subscription } = SubscribeBody.parse(req.body)
-      await notifService.saveSubscription(req.user.sub, subscription)
-      return reply.status(201).send({ ok: true })
-    }
-  )
 
   // GET /organizations/:orgId/notifications
   app.get(
@@ -45,7 +19,7 @@ export async function notificationRoutes(app: FastifyInstance) {
     }
   )
 
-  // PATCH /organizations/:orgId/notifications/:id/read
+  // PATCH /organizations/:orgId/notifications/:notificationId/read
   app.patch(
     '/:orgId/notifications/:notificationId/read',
     { preHandler: [app.authenticate, requireRole('MEMBER')] },
