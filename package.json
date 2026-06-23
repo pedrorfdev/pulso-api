@@ -8,15 +8,20 @@
     "dev": "dotenv -e .env.dev -- tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+
     "db:migrate": "dotenv -e .env.dev -- npx prisma migrate dev",
+    "db:migrate-test": "dotenv -e .env.test -- npx prisma migrate dev",
     "db:migrate:prod": "npx prisma migrate deploy",
     "db:studio": "dotenv -e .env.dev -- npx prisma studio",
-    "db:generate": "npx prisma generate",
+    "db:generate": "dotenv -e .env.dev -- npx prisma generate",
+
     "seed:demo": "dotenv -e .env.dev -- tsx prisma/seeds/demo.seed.ts",
     "seed:dev": "dotenv -e .env.dev -- tsx prisma/seeds/dev.seed.ts",
+
     "test": "dotenv -e .env.test -- vitest run",
     "test:watch": "dotenv -e .env.test -- vitest",
     "test:coverage": "dotenv -e .env.test -- vitest run --coverage",
+
     "vapid:generate": "npx web-push generate-vapid-keys"
   },
   "dependencies": {
@@ -28,7 +33,6 @@
     "@prisma/client": "latest",
     "dotenv": "latest",
     "fastify": "latest",
-    "fastify-plugin": "^6.0.0",
     "node-cron": "latest",
     "pg": "latest",
     "socket.io": "latest",

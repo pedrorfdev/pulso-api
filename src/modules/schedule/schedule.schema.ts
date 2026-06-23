@@ -19,8 +19,10 @@ export type UpdateEventBody = z.infer<typeof UpdateEventBody>
 
 export const AddSlotBody = z.object({
   member_id: z.string().uuid(),
-  role_label: z.string().min(1).max(50),
+  role_labels: z.array(z.string().min(1).max(50)).min(1, 'Pelo menos uma função é obrigatória'),
   notes: z.string().max(200).optional(),
+  // se o membro já tem slot no evento: 'add' acrescenta funções, 'replace' substitui
+  mode: z.enum(['add', 'replace']).default('add'),
 })
 export type AddSlotBody = z.infer<typeof AddSlotBody>
 
@@ -36,7 +38,7 @@ export type ConfirmAttendanceBody = z.infer<typeof ConfirmAttendanceBody>
 // ── response types
 export type SlotResponse = {
   id: string
-  role_label: string
+  role_labels: string[]
   notes: string | null
   member: {
     id: string

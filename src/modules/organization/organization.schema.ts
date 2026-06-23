@@ -63,3 +63,16 @@ export type InviteLinkResponse = {
   uses_count: number
   invite_url: string
 }
+
+// resposta de GET /me/organizations — orgs que o usuário logado pertence
+export type MyOrgMembershipResponse = {
+  member_id: string
+  role: string
+  nickname: string | null
+  joined_at: Date
+  organization: {
+    id: string
+    name: string
+    slug: string
+  }
+}

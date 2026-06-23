@@ -13,6 +13,7 @@ import { startStatsJob } from './jobs/stats.job.js'
 
 import { authRoutes } from './modules/auth/auth.routes.js'
 import { organizationRoutes } from './modules/organization/organization.routes.js'
+import { meRoutes } from './modules/organization/me.routes.js'
 import { notificationRoutes } from './modules/organization/notification.routes.js'
 import { pushRoutes } from './modules/organization/push.routes.js'
 import { statsRoutes } from './modules/organization/stats.routes.js'
@@ -48,6 +49,9 @@ export async function buildApp() {
 
   // ── push — SEM prefix, rotas /push/* ficam na raiz
   await app.register(pushRoutes)
+
+  // ── me — SEM prefix, rotas /me/* ficam na raiz
+  await app.register(meRoutes)
 
   // ── módulos escopados por organização — TODOS com prefix '/organizations'
   await app.register(organizationRoutes, { prefix: '/organizations' })

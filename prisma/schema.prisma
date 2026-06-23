@@ -27,11 +27,12 @@ enum AttendanceStatus {
 }
 
 enum SwapStatus {
-  PENDING_TARGET
+  PENDING_OPEN
   PENDING_LEADER
   APPROVED
-  REJECTED_TARGET
+  REJECTED_VOLUNTEER
   REJECTED_LEADER
+  CANCELLED
 }
 
 enum CheckItemStatus {
@@ -164,11 +165,11 @@ model Event {
 }
 
 model ScheduleSlot {
-  id         String  @id @default(uuid())
-  event_id   String
-  member_id  String
-  role_label String // "Violão", "Baixo", "Bateria"...
-  notes      String?
+  id          String   @id @default(uuid())
+  event_id    String
+  member_id   String
+  role_labels String[] // "Violão", "Baixo", "Bateria"...
+  notes       String?
 
   event             Event              @relation(fields: [event_id], references: [id], onDelete: Cascade)
   member            OrganizationMember @relation(fields: [member_id], references: [id])
@@ -176,7 +177,7 @@ model ScheduleSlot {
   swap_as_requester SwapRequest[]      @relation("RequesterSlot")
   swap_as_target    SwapRequest[]      @relation("TargetSlot")
 
-  @@unique([event_id, member_id])
+  @@unique([event_id, member_id]) // tornado DEFERRABLE via migration manual — ver swap.service.ts
   @@map("schedule_slots")
 }
 
@@ -204,11 +205,11 @@ model SwapRequest {
   id                String     @id @default(uuid())
   organization_id   String
   requester_slot_id String
-  target_slot_id    String
   requester_id      String
   target_id         String? // null = pedido aberto
+  target_slot_id    String?
   reviewed_by       String? // líder que aprovou/negou
-  status            SwapStatus @default(PENDING_TARGET)
+  status            SwapStatus @default(PENDING_OPEN)
   message           String? // justificativa do pedido
   rejection_reason  String?
   created_at        DateTime   @default(now())
@@ -216,7 +217,7 @@ model SwapRequest {
 
   organization   Organization        @relation(fields: [organization_id], references: [id])
   requester_slot ScheduleSlot        @relation("RequesterSlot", fields: [requester_slot_id], references: [id])
-  target_slot    ScheduleSlot        @relation("TargetSlot", fields: [target_slot_id], references: [id])
+  target_slot    ScheduleSlot?       @relation("TargetSlot", fields: [target_slot_id], references: [id])
   requester      OrganizationMember  @relation("SwapRequester", fields: [requester_id], references: [id])
   target         OrganizationMember? @relation("SwapTarget", fields: [target_id], references: [id])
   reviewer       User?               @relation("SwapReviewer", fields: [reviewed_by], references: [id])

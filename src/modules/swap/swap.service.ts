@@ -1,38 +1,27 @@
 import { PrismaClient } from '../../lib/prisma/generated/client.js'
 import { BadRequestError, NotFoundError, ForbiddenError } from '../../shared/errors/app-error.js'
-import type { CreateSwapBody, ReviewSwapBody, SwapResponse } from './swap.schema.js'
+import type { CreateSwapBody, SwapResponse } from './swap.schema.js'
 
 export class SwapService {
   constructor(private db: PrismaClient) {}
 
+  // membro abre pedido de troca sem alvo — vai pra fila aberta do grupo
   async createSwap(
     orgId: string,
     requesterMemberId: string,
     requesterSlotId: string,
     data: CreateSwapBody
   ): Promise<SwapResponse> {
-    // valida slot do solicitante
     const requesterSlot = await this.db.scheduleSlot.findFirst({
       where: { id: requesterSlotId, member_id: requesterMemberId, event: { organization_id: orgId } },
     })
     if (!requesterSlot) throw new NotFoundError('Slot')
 
-    // valida slot do target
-    const targetSlot = await this.db.scheduleSlot.findFirst({
-      where: { id: data.target_slot_id, event: { organization_id: orgId } },
-      include: { member: true },
-    })
-    if (!targetSlot) throw new NotFoundError('Target slot')
-
-    if (targetSlot.member_id === requesterMemberId) {
-      throw new BadRequestError('Você não pode trocar consigo mesmo')
-    }
-
-    // não permite troca duplicada pendente
+    // não permite dois pedidos abertos pro mesmo slot
     const existing = await this.db.swapRequest.findFirst({
       where: {
         requester_slot_id: requesterSlotId,
-        status: { in: ['PENDING_TARGET', 'PENDING_LEADER'] },
+        status: { in: ['PENDING_OPEN', 'PENDING_LEADER'] },
       },
     })
     if (existing) throw new BadRequestError('Já existe uma troca pendente para este slot')
@@ -41,11 +30,10 @@ export class SwapService {
       data: {
         organization_id: orgId,
         requester_slot_id: requesterSlotId,
-        target_slot_id: data.target_slot_id,
         requester_id: requesterMemberId,
-        target_id: targetSlot.member_id,
+        // target_slot_id e target_id ficam null até alguém aceitar
         message: data.message,
-        status: 'PENDING_TARGET',
+        status: 'PENDING_OPEN',
       },
       include: this.swapInclude(),
     })
@@ -53,52 +41,113 @@ export class SwapService {
     return this.toResponse(swap)
   }
 
-  // target aceita ou recusa
-  async reviewByTarget(
+  // qualquer membro do grupo aceita a troca
+  async volunteerForSwap(
     swapId: string,
-    targetMemberId: string,
-    orgId: string,
-    data: ReviewSwapBody
+    volunteerMemberId: string,
+    volunteerSlotId: string,
+    orgId: string
   ): Promise<SwapResponse> {
     const swap = await this.findSwapInOrg(swapId, orgId)
 
-    if (swap.target_id !== targetMemberId) {
-      throw new ForbiddenError('Apenas o membro alvo pode responder esta troca')
+    if (swap.status !== 'PENDING_OPEN') {
+      throw new BadRequestError('Esta troca não está mais disponível')
     }
 
-    if (swap.status !== 'PENDING_TARGET') {
-      throw new BadRequestError('Esta troca não está aguardando sua resposta')
+    if (swap.requester_id === volunteerMemberId) {
+      throw new BadRequestError('Você não pode aceitar sua própria troca')
     }
 
-    if (data.action === 'REJECT') {
-      const updated = await this.db.swapRequest.update({
-        where: { id: swapId },
-        data: {
-          status: 'REJECTED_TARGET',
-          rejection_reason: data.rejection_reason,
-          resolved_at: new Date(),
-        },
-        include: this.swapInclude(),
-      })
-      return this.toResponse(updated)
-    }
+    // valida que o slot do voluntário pertence ao mesmo evento
+    const volunteerSlot = await this.db.scheduleSlot.findFirst({
+      where: {
+        id: volunteerSlotId,
+        member_id: volunteerMemberId,
+        event_id: (await this.db.scheduleSlot.findUniqueOrThrow({
+          where: { id: swap.requester_slot_id },
+          select: { event_id: true },
+        })).event_id,
+      },
+    })
+    if (!volunteerSlot) throw new NotFoundError('Volunteer slot')
 
-    // aceito pelo target → vai pro líder
     const updated = await this.db.swapRequest.update({
       where: { id: swapId },
-      data: { status: 'PENDING_LEADER' },
+      data: {
+        target_id: volunteerMemberId,
+        target_slot_id: volunteerSlotId,
+        status: 'PENDING_LEADER',
+      },
       include: this.swapInclude(),
     })
 
     return this.toResponse(updated)
   }
 
-  // líder aprova ou recusa
+  // voluntário rejeita (desiste depois de aceitar, antes do líder aprovar)
+  async volunteerReject(
+    swapId: string,
+    volunteerMemberId: string,
+    orgId: string,
+    rejectionReason?: string
+  ): Promise<SwapResponse> {
+    const swap = await this.findSwapInOrg(swapId, orgId)
+
+    if (swap.target_id !== volunteerMemberId) {
+      throw new ForbiddenError('Apenas quem aceitou pode desistir da troca')
+    }
+
+    if (swap.status !== 'PENDING_LEADER') {
+      throw new BadRequestError('Esta troca não está no estado correto')
+    }
+
+    // volta pra fila aberta — outros podem aceitar
+    const updated = await this.db.swapRequest.update({
+      where: { id: swapId },
+      data: {
+        target_id: null,
+        target_slot_id: null,
+        status: 'PENDING_OPEN',
+        rejection_reason: rejectionReason ?? null,
+      },
+      include: this.swapInclude(),
+    })
+
+    return this.toResponse(updated)
+  }
+
+  // solicitante cancela o pedido
+  async cancelSwap(
+    swapId: string,
+    requesterMemberId: string,
+    orgId: string
+  ): Promise<SwapResponse> {
+    const swap = await this.findSwapInOrg(swapId, orgId)
+
+    if (swap.requester_id !== requesterMemberId) {
+      throw new ForbiddenError('Apenas o solicitante pode cancelar a troca')
+    }
+
+    if (!['PENDING_OPEN', 'PENDING_LEADER'].includes(swap.status)) {
+      throw new BadRequestError('Não é possível cancelar uma troca já resolvida')
+    }
+
+    const updated = await this.db.swapRequest.update({
+      where: { id: swapId },
+      data: { status: 'CANCELLED', resolved_at: new Date() },
+      include: this.swapInclude(),
+    })
+
+    return this.toResponse(updated)
+  }
+
+  // líder aprova ou rejeita
   async reviewByLeader(
     swapId: string,
     reviewerUserId: string,
     orgId: string,
-    data: ReviewSwapBody
+    action: 'APPROVE' | 'REJECT',
+    rejectionReason?: string
   ): Promise<SwapResponse> {
     const swap = await this.findSwapInOrg(swapId, orgId)
 
@@ -106,68 +155,52 @@ export class SwapService {
       throw new BadRequestError('Esta troca não está aguardando aprovação do líder')
     }
 
-    if (data.action === 'REJECT') {
+    if (action === 'REJECT') {
+      // rejeição do líder → volta pra fila aberta
       const updated = await this.db.swapRequest.update({
         where: { id: swapId },
         data: {
-          status: 'REJECTED_LEADER',
+          status: 'PENDING_OPEN',
           reviewed_by: reviewerUserId,
-          rejection_reason: data.rejection_reason,
-          resolved_at: new Date(),
+          rejection_reason: rejectionReason ?? null,
+          target_id: null,
+          target_slot_id: null,
         },
         include: this.swapInclude(),
       })
       return this.toResponse(updated)
     }
 
-    // aprovado — troca os member_id nos slots
-    // problema: unique(event_id, member_id) é validado a cada UPDATE, não no commit
-    // solução: deleta os dois slots e recria com os member_id invertidos,
-    // preservando o id original via transação atômica
-    await this.db.$transaction(async (tx) => {
-      const [reqSlot, tgtSlot] = await Promise.all([
-        tx.scheduleSlot.findUniqueOrThrow({ where: { id: swap.requester_slot_id } }),
-        tx.scheduleSlot.findUniqueOrThrow({ where: { id: swap.target_slot_id } }),
-      ])
+    // APPROVE — troca as role_labels entre os dois slots
+    if (!swap.target_slot_id) throw new BadRequestError('Troca sem voluntário definido')
 
-      // remove os dois slots (cascata apaga as attendances junto)
-      await tx.scheduleSlot.deleteMany({
-        where: { id: { in: [reqSlot.id, tgtSlot.id] } },
-      })
+    const [reqSlot, tgtSlot] = await Promise.all([
+      this.db.scheduleSlot.findUniqueOrThrow({ where: { id: swap.requester_slot_id } }),
+      this.db.scheduleSlot.findUniqueOrThrow({ where: { id: swap.target_slot_id } }),
+    ])
 
-      // recria com member_id invertido, mantendo o mesmo id e role_label
-      const newReqSlot = await tx.scheduleSlot.create({
-        data: {
-          id: reqSlot.id,
-          event_id: reqSlot.event_id,
-          member_id: tgtSlot.member_id,
-          role_label: reqSlot.role_label,
-          notes: reqSlot.notes,
-        },
-      })
-      const newTgtSlot = await tx.scheduleSlot.create({
-        data: {
-          id: tgtSlot.id,
-          event_id: tgtSlot.event_id,
-          member_id: reqSlot.member_id,
-          role_label: tgtSlot.role_label,
-          notes: tgtSlot.notes,
-        },
-      })
-
-      // recria as attendances como SWAPPED pros novos donos do slot
-      await tx.attendance.create({
-        data: { slot_id: newReqSlot.id, member_id: newReqSlot.member_id, status: 'SWAPPED', responded_at: new Date() },
-      })
-      await tx.attendance.create({
-        data: { slot_id: newTgtSlot.id, member_id: newTgtSlot.member_id, status: 'SWAPPED', responded_at: new Date() },
-      })
-
-      await tx.swapRequest.update({
+    await this.db.$transaction([
+      this.db.scheduleSlot.update({
+        where: { id: swap.requester_slot_id },
+        data: { role_labels: tgtSlot.role_labels },
+      }),
+      this.db.scheduleSlot.update({
+        where: { id: swap.target_slot_id },
+        data: { role_labels: reqSlot.role_labels },
+      }),
+      this.db.attendance.updateMany({
+        where: { slot_id: { in: [swap.requester_slot_id, swap.target_slot_id] } },
+        data: { status: 'SWAPPED', responded_at: new Date() },
+      }),
+      this.db.swapRequest.update({
         where: { id: swapId },
-        data: { status: 'APPROVED', reviewed_by: reviewerUserId, resolved_at: new Date() },
-      })
-    })
+        data: {
+          status: 'APPROVED',
+          reviewed_by: reviewerUserId,
+          resolved_at: new Date(),
+        },
+      }),
+    ])
 
     const updated = await this.db.swapRequest.findUniqueOrThrow({
       where: { id: swapId },
@@ -186,7 +219,21 @@ export class SwapService {
       orderBy: { created_at: 'desc' },
       include: this.swapInclude(),
     })
+    return swaps.map((s) => this.toResponse(s))
+  }
 
+  // lista todas as trocas abertas da org — qualquer membro pode ver e aceitar
+  async listOpenSwaps(orgId: string, memberId: string): Promise<SwapResponse[]> {
+    const swaps = await this.db.swapRequest.findMany({
+      where: {
+        organization_id: orgId,
+        status: 'PENDING_OPEN',
+        // não mostra as próprias trocas abertas — o membro já vê nas "minhas trocas"
+        requester_id: { not: memberId },
+      },
+      orderBy: { created_at: 'asc' },
+      include: this.swapInclude(),
+    })
     return swaps.map((s) => this.toResponse(s))
   }
 
@@ -196,7 +243,6 @@ export class SwapService {
       orderBy: { created_at: 'asc' },
       include: this.swapInclude(),
     })
-
     return swaps.map((s) => this.toResponse(s))
   }
 
@@ -239,16 +285,16 @@ export class SwapService {
       resolved_at: swap.resolved_at,
       requester: {
         id: swap.requester_slot.id,
-        role_label: swap.requester_slot.role_label,
+        role_labels: swap.requester_slot.role_labels,
         member: {
           id: swap.requester_slot.member.id,
           user: swap.requester_slot.member.user,
         },
       },
-      target: swap.target_slot
+      volunteer: swap.target_slot
         ? {
             id: swap.target_slot.id,
-            role_label: swap.target_slot.role_label,
+            role_labels: swap.target_slot.role_labels,
             member: {
               id: swap.target_slot.member.id,
               user: swap.target_slot.member.user,

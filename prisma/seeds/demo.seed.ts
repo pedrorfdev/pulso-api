@@ -123,12 +123,12 @@ async function seedDemo() {
   const addSlot = async (
     eventId: string,
     memberId: string,
-    roleLabel: string,
+    roleLabels: string[],
     status: 'PENDING' | 'CONFIRMED' | 'DECLINED' | 'DEADLINE_MISSED',
     justification?: string
   ) => {
     const slot = await prisma.scheduleSlot.create({
-      data: { event_id: eventId, member_id: memberId, role_label: roleLabel },
+      data: { event_id: eventId, member_id: memberId, role_labels: roleLabels },
     })
     await prisma.attendance.create({
       data: {
@@ -144,26 +144,26 @@ async function seedDemo() {
 
   // ── evento 1: próximo domingo (principal — confirmações mistas)
   const event1 = await createEvent('Culto de Domingo', 5, true)
-  await addSlot(event1.id, mAdmin.id,  'Violão elétrico', 'CONFIRMED')
-  await addSlot(event1.id, mLeader.id, 'Baixo elétrico',  'CONFIRMED')
-  await addSlot(event1.id, mCarla.id,  'Teclado',         'PENDING')
-  await addSlot(event1.id, mDiego.id,  'Bateria',         'DECLINED', 'Viagem de família')
-  await addSlot(event1.id, mElena.id,  'Vocal',           'PENDING')
+  await addSlot(event1.id, mAdmin.id,  ['Violão elétrico'], 'CONFIRMED')
+  await addSlot(event1.id, mLeader.id, ['Baixo elétrico'],  'CONFIRMED')
+  await addSlot(event1.id, mCarla.id,  ['Teclado'],         'PENDING')
+  await addSlot(event1.id, mDiego.id,  ['Bateria'],         'DECLINED', 'Viagem de família')
+  await addSlot(event1.id, mElena.id,  ['Vocal'],           'PENDING')
 
   // ── evento 2: daqui 12 dias
   const event2 = await createEvent('Culto de Domingo', 12, true)
-  await addSlot(event2.id, mAdmin.id,  'Violão elétrico', 'PENDING')
-  await addSlot(event2.id, mCarla.id,  'Teclado',         'CONFIRMED')
-  await addSlot(event2.id, mDiego.id,  'Bateria',         'PENDING')
-  await addSlot(event2.id, mElena.id,  'Vocal',           'PENDING')
+  await addSlot(event2.id, mAdmin.id,  ['Violão elétrico'], 'PENDING')
+  await addSlot(event2.id, mCarla.id,  ['Teclado'],         'CONFIRMED')
+  await addSlot(event2.id, mDiego.id,  ['Bateria'],         'PENDING')
+  await addSlot(event2.id, mElena.id,  ['Vocal'],           'PENDING')
 
   // ── evento 3: ensaio daqui 3 dias
   const event3 = await createEvent('Ensaio Geral', 3, true)
-  await addSlot(event3.id, mAdmin.id,  'Violão elétrico', 'CONFIRMED')
-  await addSlot(event3.id, mLeader.id, 'Baixo elétrico',  'CONFIRMED')
-  await addSlot(event3.id, mCarla.id,  'Teclado',         'CONFIRMED')
-  await addSlot(event3.id, mDiego.id,  'Bateria',         'CONFIRMED')
-  await addSlot(event3.id, mElena.id,  'Vocal',           'CONFIRMED')
+  await addSlot(event3.id, mAdmin.id,  ['Violão elétrico'], 'CONFIRMED')
+  await addSlot(event3.id, mLeader.id, ['Baixo elétrico'],  'CONFIRMED')
+  await addSlot(event3.id, mCarla.id,  ['Teclado'],         'CONFIRMED')
+  await addSlot(event3.id, mDiego.id,  ['Bateria'],         'CONFIRMED')
+  await addSlot(event3.id, mElena.id,  ['Vocal'],           'CONFIRMED')
 
   // ── evento 4: rascunho (não publicado)
   await createEvent('Culto Especial de Natal', 30, false)

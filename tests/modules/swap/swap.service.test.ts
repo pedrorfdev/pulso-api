@@ -44,117 +44,167 @@ async function setup() {
   })
 
   const [slot1, slot2] = await Promise.all([
-    prisma.scheduleSlot.create({ data: { event_id: event.id, member_id: orgMember1.id, role_label: 'Violão' } }),
-    prisma.scheduleSlot.create({ data: { event_id: event.id, member_id: orgMember2.id, role_label: 'Baixo' } }),
+    prisma.scheduleSlot.create({ data: { event_id: event.id, member_id: orgMember1.id, role_labels: ['Violão'] } }),
+    prisma.scheduleSlot.create({ data: { event_id: event.id, member_id: orgMember2.id, role_labels: ['Baixo'] } }),
   ])
 
   return { org, leader, member1, member2, orgLeader, orgMember1, orgMember2, event, slot1, slot2 }
 }
 
+const CLEANUP_ORDER = async () => {
+  await prisma.memberStats.deleteMany()
+  await prisma.techCheckAssignment.deleteMany()
+  await prisma.techCheckItem.deleteMany()
+  await prisma.eventSong.deleteMany()
+  await prisma.song.deleteMany()
+  await prisma.swapRequest.deleteMany()
+  await prisma.attendance.deleteMany()
+  await prisma.scheduleSlot.deleteMany()
+  await prisma.event.deleteMany()
+  await prisma.inviteLink.deleteMany()
+  await prisma.organizationMember.deleteMany()
+  await prisma.organization.deleteMany()
+  await prisma.user.deleteMany()
+}
+
 describe('SwapService', () => {
-  beforeEach(async () => {
-    await prisma.memberStats.deleteMany()
-    await prisma.techCheckAssignment.deleteMany()
-    await prisma.techCheckItem.deleteMany()
-    await prisma.eventSong.deleteMany()
-    await prisma.song.deleteMany()
-    await prisma.swapRequest.deleteMany()
-    await prisma.attendance.deleteMany()
-    await prisma.scheduleSlot.deleteMany()
-    await prisma.event.deleteMany()
-    await prisma.inviteLink.deleteMany()
-    await prisma.organizationMember.deleteMany()
-    await prisma.organization.deleteMany()
-    await prisma.user.deleteMany()
-  })
+  beforeEach(CLEANUP_ORDER)
 
   describe('createSwap', () => {
-    it('deve criar swap com status PENDING_TARGET', async () => {
-      const { org, orgMember1, slot1, slot2 } = await setup()
-
-      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {
-        target_slot_id: slot2.id,
-        message: 'Preciso de ajuda',
-      })
-
-      expect(swap.status).toBe('PENDING_TARGET')
-      expect(swap.requester.id).toBe(slot1.id)
-    })
-
-    it('deve lançar BadRequestError ao trocar consigo mesmo', async () => {
+    it('deve criar swap PENDING_OPEN sem alvo definido', async () => {
       const { org, orgMember1, slot1 } = await setup()
 
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {
+        message: 'Alguém pode me cobrir?',
+      })
+
+      expect(swap.status).toBe('PENDING_OPEN')
+      expect(swap.volunteer).toBeNull()
+    })
+
+    it('não deve permitir dois pedidos abertos pro mesmo slot', async () => {
+      const { org, orgMember1, slot1 } = await setup()
+
+      await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
+
       await expect(
-        swapService.createSwap(org.id, orgMember1.id, slot1.id, {
-          target_slot_id: slot1.id,
-        })
+        swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
       ).rejects.toThrow(BadRequestError)
     })
   })
 
-  describe('reviewByTarget', () => {
-    it('deve mover pra PENDING_LEADER quando target aceita', async () => {
+  describe('volunteerForSwap', () => {
+    it('deve mover pra PENDING_LEADER quando alguém aceita', async () => {
       const { org, orgMember1, orgMember2, slot1, slot2 } = await setup()
 
-      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {
-        target_slot_id: slot2.id,
-      })
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
+      const accepted = await swapService.volunteerForSwap(swap.id, orgMember2.id, slot2.id, org.id)
 
-      const reviewed = await swapService.reviewByTarget(swap.id, orgMember2.id, org.id, {
-        action: 'ACCEPT',
-      })
-
-      expect(reviewed.status).toBe('PENDING_LEADER')
+      expect(accepted.status).toBe('PENDING_LEADER')
+      expect(accepted.volunteer?.member.id).toBe(orgMember2.id)
     })
 
-    it('deve mover pra REJECTED_TARGET quando target recusa', async () => {
-      const { org, orgMember1, orgMember2, slot1, slot2 } = await setup()
+    it('não deve permitir o solicitante aceitar a própria troca', async () => {
+      const { org, orgMember1, slot1 } = await setup()
 
-      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {
-        target_slot_id: slot2.id,
-      })
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
 
-      const reviewed = await swapService.reviewByTarget(swap.id, orgMember2.id, org.id, {
-        action: 'REJECT',
-        rejection_reason: 'Não consigo',
-      })
-
-      expect(reviewed.status).toBe('REJECTED_TARGET')
-    })
-
-    it('deve lançar ForbiddenError se não for o target', async () => {
-      const { org, orgMember1, slot1, slot2 } = await setup()
-
-      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {
-        target_slot_id: slot2.id,
-      })
-
-      // orgMember1 tenta responder a própria troca
       await expect(
-        swapService.reviewByTarget(swap.id, orgMember1.id, org.id, { action: 'ACCEPT' })
+        swapService.volunteerForSwap(swap.id, orgMember1.id, slot1.id, org.id)
+      ).rejects.toThrow(BadRequestError)
+    })
+
+    it('não deve permitir aceitar troca que não está PENDING_OPEN', async () => {
+      const { org, orgMember1, orgMember2, slot1, slot2 } = await setup()
+
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
+      await swapService.volunteerForSwap(swap.id, orgMember2.id, slot2.id, org.id)
+
+      // já está PENDING_LEADER, não pode aceitar de novo
+      await expect(
+        swapService.volunteerForSwap(swap.id, orgMember2.id, slot2.id, org.id)
+      ).rejects.toThrow(BadRequestError)
+    })
+  })
+
+  describe('volunteerReject', () => {
+    it('deve voltar pra PENDING_OPEN quando voluntário desiste', async () => {
+      const { org, orgMember1, orgMember2, slot1, slot2 } = await setup()
+
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
+      await swapService.volunteerForSwap(swap.id, orgMember2.id, slot2.id, org.id)
+
+      const rejected = await swapService.volunteerReject(swap.id, orgMember2.id, org.id, 'Mudei de ideia')
+
+      expect(rejected.status).toBe('PENDING_OPEN')
+      expect(rejected.volunteer).toBeNull()
+    })
+
+    it('não deve permitir quem não é o voluntário desistir', async () => {
+      const { org, orgMember1, orgMember2, slot1, slot2 } = await setup()
+
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
+      await swapService.volunteerForSwap(swap.id, orgMember2.id, slot2.id, org.id)
+
+      await expect(
+        swapService.volunteerReject(swap.id, orgMember1.id, org.id)
+      ).rejects.toThrow(ForbiddenError)
+    })
+  })
+
+  describe('cancelSwap', () => {
+    it('solicitante deve conseguir cancelar troca aberta', async () => {
+      const { org, orgMember1, slot1 } = await setup()
+
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
+      const cancelled = await swapService.cancelSwap(swap.id, orgMember1.id, org.id)
+
+      expect(cancelled.status).toBe('CANCELLED')
+    })
+
+    it('não deve permitir outro membro cancelar', async () => {
+      const { org, orgMember1, orgMember2, slot1 } = await setup()
+
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
+
+      await expect(
+        swapService.cancelSwap(swap.id, orgMember2.id, org.id)
       ).rejects.toThrow(ForbiddenError)
     })
   })
 
   describe('reviewByLeader', () => {
-    it('deve aprovar troca e trocar membros nos slots', async () => {
+    it('deve aprovar troca e trocar role_labels entre os slots', async () => {
       const { org, leader, orgMember1, orgMember2, slot1, slot2 } = await setup()
 
-      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {
-        target_slot_id: slot2.id,
-      })
-
-      await swapService.reviewByTarget(swap.id, orgMember2.id, org.id, { action: 'ACCEPT' })
-      const approved = await swapService.reviewByLeader(swap.id, leader.id, org.id, { action: 'ACCEPT' })
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
+      await swapService.volunteerForSwap(swap.id, orgMember2.id, slot2.id, org.id)
+      const approved = await swapService.reviewByLeader(swap.id, leader.id, org.id, 'APPROVE')
 
       expect(approved.status).toBe('APPROVED')
 
-      // verifica que os slots foram trocados
       const updatedSlot1 = await prisma.scheduleSlot.findUnique({ where: { id: slot1.id } })
       const updatedSlot2 = await prisma.scheduleSlot.findUnique({ where: { id: slot2.id } })
 
-      expect(updatedSlot1?.member_id).toBe(orgMember2.id)
-      expect(updatedSlot2?.member_id).toBe(orgMember1.id)
+      // member_id NÃO muda — só role_labels trocam
+      expect(updatedSlot1?.member_id).toBe(orgMember1.id)
+      expect(updatedSlot2?.member_id).toBe(orgMember2.id)
+      expect(updatedSlot1?.role_labels).toEqual(['Baixo'])
+      expect(updatedSlot2?.role_labels).toEqual(['Violão'])
+    })
+
+    it('rejeição do líder deve voltar pra PENDING_OPEN', async () => {
+      const { org, leader, orgMember1, orgMember2, slot1, slot2 } = await setup()
+
+      const swap = await swapService.createSwap(org.id, orgMember1.id, slot1.id, {})
+      await swapService.volunteerForSwap(swap.id, orgMember2.id, slot2.id, org.id)
+
+      const rejected = await swapService.reviewByLeader(
+        swap.id, leader.id, org.id, 'REJECT', 'Não autorizo'
+      )
+
+      expect(rejected.status).toBe('PENDING_OPEN')
+      expect(rejected.volunteer).toBeNull()
     })
   })
 })

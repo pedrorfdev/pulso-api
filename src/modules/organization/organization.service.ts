@@ -8,10 +8,31 @@ import type {
   OrgResponse,
   OrgMemberResponse,
   InviteLinkResponse,
+  MyOrgMembershipResponse,
 } from './organization.schema.js'
 
 export class OrganizationService {
   constructor(private db: PrismaClient) {}
+
+  // lista as orgs que o usuário logado pertence — usado pelo front
+  // logo após o login pra montar o seletor/redirecionamento de org
+  async listMyOrganizations(userId: string): Promise<MyOrgMembershipResponse[]> {
+    const memberships = await this.db.organizationMember.findMany({
+      where: { user_id: userId, is_active: true },
+      include: {
+        organization: { select: { id: true, name: true, slug: true } },
+      },
+      orderBy: { joined_at: 'asc' },
+    })
+
+    return memberships.map((m) => ({
+      member_id: m.id,
+      role: m.role,
+      nickname: m.nickname,
+      joined_at: m.joined_at,
+      organization: m.organization,
+    }))
+  }
 
   async create(userId: string, data: CreateOrgBody): Promise<OrgResponse> {
     const existing = await this.db.organization.findUnique({

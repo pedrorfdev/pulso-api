@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { prisma } from '../../../src/lib/prisma.js'
 import { ScheduleService } from '../../../src/modules/schedule/schedule.service.js'
-import { BadRequestError } from '../../../src/shared/errors/app-error.js'
+import { BadRequestError, NotFoundError } from '../../../src/shared/errors/app-error.js'
 
 const scheduleService = new ScheduleService(prisma)
 
@@ -41,7 +41,7 @@ function futureDate(daysAhead = 7) {
 
 describe('ScheduleService', () => {
   beforeEach(async () => {
-     await prisma.memberStats.deleteMany()
+    await prisma.memberStats.deleteMany()
     await prisma.techCheckAssignment.deleteMany()
     await prisma.techCheckItem.deleteMany()
     await prisma.eventSong.deleteMany()
@@ -104,11 +104,91 @@ describe('ScheduleService', () => {
 
       const slot = await scheduleService.addSlot(event.id, org.id, {
         member_id: user.id,
-        role_label: 'Violão',
+        role_labels: ['Violão'],
+        mode: 'add'
       })
 
-      expect(slot.role_label).toBe('Violão')
+      expect(slot.role_labels).toEqual(['Violão'])
       expect(slot.attendance?.status).toBe('PENDING')
+    })
+
+    it('deve adicionar uma segunda função ao mesmo membro (mode: add)', async () => {
+      const user = await createTestUser('leader3b')
+      const org = await createTestOrg(user.id, 'org-slot1b')
+
+      const event = await scheduleService.createEvent(org.id, user.id, {
+        title: 'Culto com poucas pessoas',
+        starts_at: futureDate(7),
+      })
+
+      await scheduleService.addSlot(event.id, org.id, {
+        member_id: user.id,
+        role_labels: ['Violão'],
+        mode: 'add'
+      })
+
+      // mesma pessoa, função extra — não deve criar um segundo slot
+      const updated = await scheduleService.addSlot(event.id, org.id, {
+        member_id: user.id,
+        role_labels: ['Vocal'],
+        mode: 'add',
+      })
+
+      expect(updated.role_labels).toEqual(['Violão', 'Vocal'])
+
+      // confirma que continua sendo UM slot só (uma attendance só)
+      const slots = await prisma.scheduleSlot.findMany({
+        where: { event_id: event.id },
+      })
+      expect(slots).toHaveLength(1)
+    })
+
+    it('deve substituir as funções do membro (mode: replace)', async () => {
+      const user = await createTestUser('leader3c')
+      const org = await createTestOrg(user.id, 'org-slot1c')
+
+      const event = await scheduleService.createEvent(org.id, user.id, {
+        title: 'Culto replace',
+        starts_at: futureDate(7),
+      })
+
+      await scheduleService.addSlot(event.id, org.id, {
+        member_id: user.id,
+        role_labels: ['Violão', 'Vocal'],
+        mode: 'add'
+      })
+
+      const replaced = await scheduleService.addSlot(event.id, org.id, {
+        member_id: user.id,
+        role_labels: ['Teclado'],
+        mode: 'replace',
+      })
+
+      expect(replaced.role_labels).toEqual(['Teclado'])
+    })
+
+    it('não deve duplicar função repetida (mode: add com função já existente)', async () => {
+      const user = await createTestUser('leader3d')
+      const org = await createTestOrg(user.id, 'org-slot1d')
+
+      const event = await scheduleService.createEvent(org.id, user.id, {
+        title: 'Culto dedup',
+        starts_at: futureDate(7),
+      })
+
+      await scheduleService.addSlot(event.id, org.id, {
+        member_id: user.id,
+        role_labels: ['Violão'],
+        mode: 'add'
+      })
+
+      const updated = await scheduleService.addSlot(event.id, org.id, {
+        member_id: user.id,
+        role_labels: ['Violão'], // já existe
+        mode: 'add',
+      })
+
+      expect(updated.role_labels).toEqual(['Violão'])
     })
 
     it('deve lançar BadRequestError ao publicar sem slots', async () => {
@@ -136,7 +216,8 @@ describe('ScheduleService', () => {
 
       await scheduleService.addSlot(event.id, org.id, {
         member_id: user.id,
-        role_label: 'Baixo',
+        role_labels: ['Baixo'],
+        mode: 'add'
       })
 
       const published = await scheduleService.publishEvent(event.id, org.id)
@@ -165,7 +246,8 @@ describe('ScheduleService', () => {
 
       await scheduleService.addSlot(event.id, org.id, {
         member_id: user.id,
-        role_label: 'Teclado',
+        role_labels: ['Teclado'],
+        mode: 'add'
       })
 
       const attendance = await prisma.attendance.findFirstOrThrow({
@@ -205,7 +287,8 @@ describe('ScheduleService', () => {
 
       await scheduleService.addSlot(event.id, org.id, {
         member_id: user.id,
-        role_label: 'Bateria',
+        role_labels: ['Bateria'],
+        mode: 'add'
       })
 
       const attendance = await prisma.attendance.findFirstOrThrow({
@@ -241,7 +324,8 @@ describe('ScheduleService', () => {
 
       await scheduleService.addSlot(event.id, org.id, {
         member_id: user.id,
-        role_label: 'Violão',
+        role_labels: ['Violão'],
+        mode: 'add'
       })
 
       const attendance = await prisma.attendance.findFirstOrThrow({

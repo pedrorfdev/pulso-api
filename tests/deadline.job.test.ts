@@ -72,7 +72,7 @@ describe('DeadlineJob', () => {
     })
 
     const slot = await prisma.scheduleSlot.create({
-      data: { event_id: event.id, member_id: member.id, role_label: 'Violão' },
+      data: { event_id: event.id, member_id: member.id, role_labels: ['Violão'] },
     })
 
     await prisma.attendance.create({
@@ -113,7 +113,7 @@ describe('DeadlineJob', () => {
     })
 
     const slot = await prisma.scheduleSlot.create({
-      data: { event_id: event.id, member_id: member.id, role_label: 'Baixo' },
+      data: { event_id: event.id, member_id: member.id, role_labels: ['Baixo'] },
     })
 
     await prisma.attendance.create({

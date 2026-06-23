@@ -100,7 +100,7 @@ async function seedDev() {
   const addSlot = async (
     eventId: string,
     memberId: string,
-    roleLabel: string,
+    roleLabels: string[],
     status: 'PENDING' | 'CONFIRMED' | 'DECLINED',
     justification?: string
   ) => {
@@ -110,7 +110,7 @@ async function seedDev() {
     if (existing) return existing
 
     const slot = await prisma.scheduleSlot.create({
-      data: { event_id: eventId, member_id: memberId, role_label: roleLabel },
+      data: { event_id: eventId, member_id: memberId, role_labels: roleLabels },
     })
     await prisma.attendance.upsert({
       where: { slot_id: slot.id },
@@ -128,23 +128,23 @@ async function seedDev() {
 
   // evento principal — próxima semana
   const ev1 = await createEvent('Culto de Domingo', 7, true)
-  await addSlot(ev1.id, mPedro.id, 'Violão elétrico', 'CONFIRMED')
-  await addSlot(ev1.id, mLucas.id, 'Baixo elétrico',  'PENDING')
-  await addSlot(ev1.id, mAna.id,   'Teclado',         'CONFIRMED')
-  await addSlot(ev1.id, mJoao.id,  'Bateria',         'DECLINED', 'Viagem de família')
-  await addSlot(ev1.id, mMari.id,  'Vocal',           'PENDING')
+  await addSlot(ev1.id, mPedro.id, ['Violão elétrico'], 'CONFIRMED')
+  await addSlot(ev1.id, mLucas.id, ['Baixo elétrico'],  'PENDING')
+  await addSlot(ev1.id, mAna.id,   ['Teclado'],         'CONFIRMED')
+  await addSlot(ev1.id, mJoao.id,  ['Bateria'],         'DECLINED', 'Viagem de família')
+  await addSlot(ev1.id, mMari.id,  ['Vocal'],           'PENDING')
 
   // ensaio — daqui 3 dias
   const ev2 = await createEvent('Ensaio Geral', 3, true)
-  await addSlot(ev2.id, mPedro.id, 'Violão elétrico', 'CONFIRMED')
-  await addSlot(ev2.id, mLucas.id, 'Baixo elétrico',  'CONFIRMED')
-  await addSlot(ev2.id, mAna.id,   'Teclado',         'CONFIRMED')
+  await addSlot(ev2.id, mPedro.id, ['Violão elétrico'], 'CONFIRMED')
+  await addSlot(ev2.id, mLucas.id, ['Baixo elétrico'],  'CONFIRMED')
+  await addSlot(ev2.id, mAna.id,   ['Teclado'],         'CONFIRMED')
 
   // próximo domingo — daqui 14 dias
   const ev3 = await createEvent('Culto de Domingo', 14, true)
-  await addSlot(ev3.id, mPedro.id, 'Violão elétrico', 'PENDING')
-  await addSlot(ev3.id, mJoao.id,  'Bateria',         'PENDING')
-  await addSlot(ev3.id, mMari.id,  'Vocal',           'PENDING')
+  await addSlot(ev3.id, mPedro.id, ['Violão elétrico'], 'PENDING')
+  await addSlot(ev3.id, mJoao.id,  ['Bateria'],         'PENDING')
+  await addSlot(ev3.id, mMari.id,  ['Vocal'],           'PENDING')
 
   // rascunho
   await createEvent('Culto Especial', 21, false)

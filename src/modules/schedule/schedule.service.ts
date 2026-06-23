@@ -190,7 +190,6 @@ export class ScheduleService {
       throw new BadRequestError('Não é possível alterar escala de evento publicado')
     }
 
-    // verifica se o membro pertence à org
     const member = await this.db.organizationMember.findUnique({
       where: {
         user_id_organization_id: {
@@ -204,25 +203,47 @@ export class ScheduleService {
       throw new NotFoundError('Member')
     }
 
-    // cria slot + attendance atomicamente
+    // verifica se o membro já tem slot nesse evento
+    const existingSlot = await this.db.scheduleSlot.findUnique({
+      where: { event_id_member_id: { event_id: eventId, member_id: member.id } },
+      include: { attendance: true },
+    })
+
+    if (existingSlot) {
+      // membro já escalado — soma ou substitui as funções, conforme o mode
+      const newRoleLabels =
+        data.mode === 'add'
+          ? Array.from(new Set([...existingSlot.role_labels, ...data.role_labels]))
+          : data.role_labels
+
+      const updated = await this.db.scheduleSlot.update({
+        where: { id: existingSlot.id },
+        data: { role_labels: newRoleLabels, notes: data.notes ?? existingSlot.notes },
+        include: {
+          member: {
+            include: { user: { select: { id: true, name: true, avatar_url: true } } },
+          },
+          attendance: true,
+        },
+      })
+
+      return this.toSlotResponse(updated)
+    }
+
+    // membro ainda não escalado — cria slot + attendance atomicamente
     const slot = await this.db.scheduleSlot.create({
       data: {
         event_id: eventId,
         member_id: member.id,
-        role_label: data.role_label,
+        role_labels: data.role_labels,
         notes: data.notes,
         attendance: {
-          create: {
-            member_id: member.id,
-            status: 'PENDING',
-          },
+          create: { member_id: member.id, status: 'PENDING' },
         },
       },
       include: {
         member: {
-          include: {
-            user: { select: { id: true, name: true, avatar_url: true } },
-          },
+          include: { user: { select: { id: true, name: true, avatar_url: true } } },
         },
         attendance: true,
       },
@@ -323,7 +344,7 @@ export class ScheduleService {
   private toSlotResponse(slot: any): SlotResponse {
     return {
       id: slot.id,
-      role_label: slot.role_label,
+      role_labels: slot.role_labels,
       notes: slot.notes,
       member: {
         id: slot.member.id,
