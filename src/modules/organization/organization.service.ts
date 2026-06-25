@@ -140,10 +140,21 @@ export class OrganizationService {
           organization_id: invite.organization_id,
         },
       },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, avatar_url: true },
+        },
+      },
     })
 
     if (existing?.is_active) {
-      throw new ConflictError('Você já é membro desta organização')
+      return {
+        id: existing.id,
+        role: existing.role,
+        nickname: existing.nickname,
+        joined_at: existing.joined_at,
+        user: existing.user,
+      }
     }
 
     // transação: cria membro + incrementa uses_count + cria stats
@@ -227,7 +238,7 @@ export class OrganizationService {
       expires_at: invite.expires_at,
       max_uses: invite.max_uses,
       uses_count: invite.uses_count,
-      invite_url: `${env.FRONTEND_URL}/invite/${invite.token}`,
+      invite_url: `${env.FRONTEND_URL}/join/${invite.token}`,
     }
   }
 }

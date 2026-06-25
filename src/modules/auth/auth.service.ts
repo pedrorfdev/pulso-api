@@ -63,8 +63,9 @@ export class AuthService {
 
   async upsertUser(googleUser: GoogleUserInfo): Promise<AuthUserResponse> {
     const user = await this.db.user.upsert({
-      where: { google_id: googleUser.sub },
+      where: { email: googleUser.email },
       update: {
+        google_id: googleUser.sub,
         name: googleUser.name,
         avatar_url: googleUser.picture,
       },
