@@ -51,7 +51,7 @@ async function seedDev() {
     },
   });
 
-  // ── limpa APENAS dados da org dev (nunca toca em outras orgs)
+  // ── limpa APENAS dados da org dev
   await prisma.notification.deleteMany({ where: { organization_id: org.id } });
   await prisma.memberStats.deleteMany({
     where: { member: { organization_id: org.id } },
@@ -84,21 +84,10 @@ async function seedDev() {
     role: "ADMIN" | "LEADER" | "MEMBER",
     nickname?: string,
   ) => {
-    const existing = await prisma.organizationMember.findUnique({
-      where: {
-        user_id_organization_id: { user_id: userId, organization_id: org.id },
-      },
-    });
-    if (existing) return existing;
-
     const m = await prisma.organizationMember.create({
       data: { user_id: userId, organization_id: org.id, role, nickname },
     });
-    await prisma.memberStats.upsert({
-      where: { member_id: m.id },
-      update: {},
-      create: { member_id: m.id },
-    });
+    await prisma.memberStats.create({ data: { member_id: m.id } });
     return m;
   };
 
@@ -119,6 +108,7 @@ async function seedDev() {
     },
   });
 
+  // ── IDs gerados pelo Prisma (UUIDs válidos) — sem id: fixo
   const createEvent = async (
     title: string,
     daysFromNow: number,
@@ -126,11 +116,8 @@ async function seedDev() {
   ) => {
     const startsAt = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
     startsAt.setHours(18, 0, 0, 0);
-    return prisma.event.upsert({
-      where: { id: `dev-event-${daysFromNow}` },
-      update: {},
-      create: {
-        id: `dev-event-${daysFromNow}`,
+    return prisma.event.create({
+      data: {
         organization_id: org.id,
         created_by: pedro.id,
         title,
@@ -151,18 +138,11 @@ async function seedDev() {
     status: "PENDING" | "CONFIRMED" | "DECLINED",
     justification?: string,
   ) => {
-    const existing = await prisma.scheduleSlot.findUnique({
-      where: { event_id_member_id: { event_id: eventId, member_id: memberId } },
-    });
-    if (existing) return existing;
-
     const slot = await prisma.scheduleSlot.create({
       data: { event_id: eventId, member_id: memberId, role_labels: roleLabels },
     });
-    await prisma.attendance.upsert({
-      where: { slot_id: slot.id },
-      update: {},
-      create: {
+    await prisma.attendance.create({
+      data: {
         slot_id: slot.id,
         member_id: memberId,
         status,
@@ -173,7 +153,7 @@ async function seedDev() {
     return slot;
   };
 
-  // evento principal — próxima semana
+  // Evento principal — próxima semana
   const ev1 = await createEvent("Culto de Domingo", 7, true);
   await addSlot(ev1.id, mPedro.id, ["Violão elétrico"], "CONFIRMED");
   await addSlot(ev1.id, mLucas.id, ["Baixo elétrico"], "PENDING");
@@ -181,22 +161,22 @@ async function seedDev() {
   await addSlot(ev1.id, mJoao.id, ["Bateria"], "DECLINED", "Viagem de família");
   await addSlot(ev1.id, mMari.id, ["Vocal"], "PENDING");
 
-  // ensaio — daqui 3 dias
+  // Ensaio — daqui 3 dias
   const ev2 = await createEvent("Ensaio Geral", 3, true);
   await addSlot(ev2.id, mPedro.id, ["Violão elétrico"], "CONFIRMED");
   await addSlot(ev2.id, mLucas.id, ["Baixo elétrico"], "CONFIRMED");
   await addSlot(ev2.id, mAna.id, ["Teclado"], "CONFIRMED");
 
-  // próximo domingo — daqui 14 dias
+  // Próximo domingo — daqui 14 dias
   const ev3 = await createEvent("Culto de Domingo", 14, true);
   await addSlot(ev3.id, mPedro.id, ["Violão elétrico"], "PENDING");
   await addSlot(ev3.id, mJoao.id, ["Bateria"], "PENDING");
   await addSlot(ev3.id, mMari.id, ["Vocal"], "PENDING");
 
-  // rascunho
+  // Rascunho
   await createEvent("Culto Especial", 21, false);
 
-  // songs
+  // ── Songs sem id: fixo
   const songData = [
     {
       title: "Nada Além do Sangue",
@@ -212,24 +192,15 @@ async function seedDev() {
   ];
 
   for (const [i, s] of songData.entries()) {
-    const song = await prisma.song.upsert({
-      where: { id: `dev-song-00${i + 1}` },
-      update: {},
-      create: {
-        id: `dev-song-00${i + 1}`,
-        organization_id: org.id,
-        added_by: pedro.id,
-        ...s,
-      },
+    const song = await prisma.song.create({
+      data: { organization_id: org.id, added_by: pedro.id, ...s },
     });
-    await prisma.eventSong.upsert({
-      where: { event_id_song_id: { event_id: ev1.id, song_id: song.id } },
-      update: {},
-      create: { event_id: ev1.id, song_id: song.id, order: i + 1 },
+    await prisma.eventSong.create({
+      data: { event_id: ev1.id, song_id: song.id, order: i + 1 },
     });
   }
 
-  // tech check
+  // Tech check
   const items = [
     {
       label: "Violão elétrico",
@@ -288,11 +259,11 @@ async function seedDev() {
 ✅ Dev seed concluído!
 
 Org:    Jovens Conexão (slug: jovens-conexao)
-Users:  pedro@pulso.app  (ADMIN)
-        lucas@pulso.app  (LEADER)
-        ana@pulso.app    (MEMBER)
-        joao@pulso.app   (MEMBER)
-        mari@pulso.app   (MEMBER)
+Users:  pedrorf.dev@gmail.com (ADMIN)
+        lucas@pulso.app       (LEADER)
+        ana@pulso.app         (MEMBER)
+        joao@pulso.app        (MEMBER)
+        mari@pulso.app        (MEMBER)
 Invite: http://localhost:5173/join/dev-invite-token
 API:    http://localhost:3333
   `);

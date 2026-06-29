@@ -19,7 +19,7 @@ export const UpdateEventBody = z.object({
 export type UpdateEventBody = z.infer<typeof UpdateEventBody>;
 
 export const AddSlotBody = z.object({
-  member_id: z.string().uuid(),
+  member_id: z.string().min(1),
   role_labels: z
     .array(z.string().min(1).max(50))
     .min(1, "Pelo menos uma função é obrigatória"),
