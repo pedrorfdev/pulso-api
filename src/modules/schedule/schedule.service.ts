@@ -60,10 +60,6 @@ export class ScheduleService {
   ): Promise<EventResponse> {
     const event = await this.findEventInOrg(eventId, orgId);
 
-    if (event.is_published) {
-      throw new BadRequestError("Não é possível editar um evento já publicado");
-    }
-
     const updateData: Record<string, unknown> = { ...data };
 
     if (data.starts_at) {
