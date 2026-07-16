@@ -305,7 +305,7 @@ export class ScheduleService {
       throw new BadRequestError("Prazo de confirmação encerrado");
     }
 
-    if (attendance.status === "CONFIRMED" || attendance.status === "DECLINED") {
+    if (attendance.status === "CONFIRMED") {
       throw new BadRequestError("Presença já confirmada anteriormente");
     }
 

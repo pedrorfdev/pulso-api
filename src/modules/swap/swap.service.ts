@@ -263,12 +263,18 @@ export class SwapService {
           member: {
             include: { user: { select: { name: true, avatar_url: true } } },
           },
+          event: {
+            select: { id: true, title: true, starts_at: true },
+          },
         },
       },
       target_slot: {
         include: {
           member: {
             include: { user: { select: { name: true, avatar_url: true } } },
+          },
+          event: {
+            select: { id: true, title: true, starts_at: true },
           },
         },
       },
@@ -290,6 +296,7 @@ export class SwapService {
           id: swap.requester_slot.member.id,
           user: swap.requester_slot.member.user,
         },
+        event: swap.requester_slot.event,
       },
       volunteer: swap.target_slot
         ? {
@@ -299,6 +306,7 @@ export class SwapService {
               id: swap.target_slot.member.id,
               user: swap.target_slot.member.user,
             },
+            event: swap.target_slot.event,
           }
         : null,
     }

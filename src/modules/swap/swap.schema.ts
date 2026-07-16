@@ -32,10 +32,12 @@ export type SwapResponse = {
     id: string;
     role_labels: string[];
     member: { id: string; user: { name: string; avatar_url: string | null } };
+    event: { id: string; title: string; starts_at: Date };
   };
   volunteer: {
     id: string;
     role_labels: string[];
     member: { id: string; user: { name: string; avatar_url: string | null } };
+    event: { id: string; title: string; starts_at: Date };
   } | null;
 };
