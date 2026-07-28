@@ -39,6 +39,7 @@ export type OrgResponse = {
   absences_public: boolean
   justifications_public: boolean
   created_at: Date
+  invite_token?: string
 }
 
 export type OrgMemberResponse = {

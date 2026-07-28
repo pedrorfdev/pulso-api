@@ -56,10 +56,6 @@ async function seedDev() {
   await prisma.memberStats.deleteMany({
     where: { member: { organization_id: org.id } },
   });
-  await prisma.techCheckAssignment.deleteMany({
-    where: { item: { organization_id: org.id } },
-  });
-  await prisma.techCheckItem.deleteMany({ where: { organization_id: org.id } });
   await prisma.eventSong.deleteMany({
     where: { event: { organization_id: org.id } },
   });
@@ -87,6 +83,7 @@ async function seedDev() {
     const m = await prisma.organizationMember.create({
       data: { user_id: userId, organization_id: org.id, role, nickname },
     });
+    // Stats criados com zeros — serão atualizados depois
     await prisma.memberStats.create({ data: { member_id: m.id } });
     return m;
   };
@@ -108,11 +105,12 @@ async function seedDev() {
     },
   });
 
-  // ── IDs gerados pelo Prisma (UUIDs válidos) — sem id: fixo
+  // ── Helper: cria evento em X dias a partir de hoje (negativo = passado)
   const createEvent = async (
     title: string,
     daysFromNow: number,
     published: boolean,
+    location = "Templo Principal",
   ) => {
     const startsAt = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
     startsAt.setHours(18, 0, 0, 0);
@@ -121,7 +119,7 @@ async function seedDev() {
         organization_id: org.id,
         created_by: pedro.id,
         title,
-        location: "Templo Principal",
+        location,
         starts_at: startsAt,
         confirmation_deadline: new Date(
           startsAt.getTime() - 48 * 60 * 60 * 1000,
@@ -131,12 +129,14 @@ async function seedDev() {
     });
   };
 
+  // ── Helper: cria slot + attendance num evento já passado (respondido)
   const addSlot = async (
     eventId: string,
     memberId: string,
     roleLabels: string[],
-    status: "PENDING" | "CONFIRMED" | "DECLINED",
+    status: "PENDING" | "CONFIRMED" | "DECLINED" | "DEADLINE_MISSED" | "SWAPPED",
     justification?: string,
+    respondedAt?: Date,
   ) => {
     const slot = await prisma.scheduleSlot.create({
       data: { event_id: eventId, member_id: memberId, role_labels: roleLabels },
@@ -147,11 +147,65 @@ async function seedDev() {
         member_id: memberId,
         status,
         justification: justification ?? null,
-        responded_at: status !== "PENDING" ? new Date() : null,
+        responded_at: respondedAt ?? (status !== "PENDING" ? new Date() : null),
       },
     });
     return slot;
   };
+
+  // ─────────────────────────────────────────
+  // HISTÓRICO PASSADO (6 eventos — para stats)
+  // ─────────────────────────────────────────
+
+  // Evento -42 dias
+  const evP1 = await createEvent("Culto de Domingo", -42, true);
+  await addSlot(evP1.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 44 * 86400000));
+  await addSlot(evP1.id, mLucas.id, ["Baixo elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 44 * 86400000));
+  await addSlot(evP1.id, mAna.id, ["Teclado"], "CONFIRMED", undefined, new Date(Date.now() - 44 * 86400000));
+  await addSlot(evP1.id, mJoao.id, ["Bateria"], "DECLINED", "Viagem de trabalho");
+  await addSlot(evP1.id, mMari.id, ["Vocal"], "CONFIRMED", undefined, new Date(Date.now() - 43 * 86400000));
+
+  // Evento -35 dias
+  const evP2 = await createEvent("Ensaio Geral", -35, true);
+  await addSlot(evP2.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 37 * 86400000));
+  await addSlot(evP2.id, mLucas.id, ["Baixo elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 37 * 86400000));
+  await addSlot(evP2.id, mAna.id, ["Teclado"], "DEADLINE_MISSED");
+  await addSlot(evP2.id, mMari.id, ["Vocal"], "CONFIRMED", undefined, new Date(Date.now() - 37 * 86400000));
+
+  // Evento -28 dias
+  const evP3 = await createEvent("Culto de Domingo", -28, true);
+  await addSlot(evP3.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 30 * 86400000));
+  await addSlot(evP3.id, mLucas.id, ["Baixo elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 29 * 86400000));
+  await addSlot(evP3.id, mAna.id, ["Teclado"], "CONFIRMED", undefined, new Date(Date.now() - 30 * 86400000));
+  await addSlot(evP3.id, mJoao.id, ["Bateria"], "DECLINED", "Problema de saúde");
+  await addSlot(evP3.id, mMari.id, ["Vocal", "Backing vocal"], "CONFIRMED", undefined, new Date(Date.now() - 30 * 86400000));
+
+  // Evento -21 dias
+  const evP4 = await createEvent("Culto Especial", -21, true, "Auditório Central");
+  await addSlot(evP4.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 23 * 86400000));
+  await addSlot(evP4.id, mLucas.id, ["Baixo elétrico"], "DEADLINE_MISSED");
+  await addSlot(evP4.id, mAna.id, ["Teclado"], "CONFIRMED", undefined, new Date(Date.now() - 23 * 86400000));
+  await addSlot(evP4.id, mJoao.id, ["Bateria"], "CONFIRMED", undefined, new Date(Date.now() - 23 * 86400000));
+  await addSlot(evP4.id, mMari.id, ["Vocal"], "CONFIRMED", undefined, new Date(Date.now() - 23 * 86400000));
+
+  // Evento -14 dias
+  const evP5 = await createEvent("Culto de Domingo", -14, true);
+  await addSlot(evP5.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 16 * 86400000));
+  await addSlot(evP5.id, mLucas.id, ["Baixo elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 16 * 86400000));
+  await addSlot(evP5.id, mJoao.id, ["Bateria"], "DECLINED", "Compromisso familiar");
+  await addSlot(evP5.id, mMari.id, ["Vocal"], "CONFIRMED", undefined, new Date(Date.now() - 15 * 86400000));
+
+  // Evento -7 dias
+  const evP6 = await createEvent("Ensaio Geral", -7, true);
+  await addSlot(evP6.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 9 * 86400000));
+  await addSlot(evP6.id, mLucas.id, ["Baixo elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 9 * 86400000));
+  await addSlot(evP6.id, mAna.id, ["Teclado"], "CONFIRMED", undefined, new Date(Date.now() - 9 * 86400000));
+  await addSlot(evP6.id, mJoao.id, ["Bateria"], "CONFIRMED", undefined, new Date(Date.now() - 9 * 86400000));
+  await addSlot(evP6.id, mMari.id, ["Vocal"], "CONFIRMED", undefined, new Date(Date.now() - 9 * 86400000));
+
+  // ─────────────────────────────────────────
+  // EVENTOS FUTUROS
+  // ─────────────────────────────────────────
 
   // Evento principal — próxima semana
   const ev1 = await createEvent("Culto de Domingo", 7, true);
@@ -176,7 +230,9 @@ async function seedDev() {
   // Rascunho
   await createEvent("Culto Especial", 21, false);
 
-  // ── Songs sem id: fixo
+  // ─────────────────────────────────────────
+  // SONGS
+  // ─────────────────────────────────────────
   const songData = [
     {
       title: "Nada Além do Sangue",
@@ -200,70 +256,91 @@ async function seedDev() {
     });
   }
 
-  // Tech check
-  const items = [
+  // ─────────────────────────────────────────
+  // MEMBER STATS — populados com histórico realista
+  // Pedro: presença exemplar, poucos swaps
+  // Lucas: bom, mas perdeu 1 prazo
+  // Ana:   confiável, 1 deadline miss
+  // João:  3 faltas, score mais baixo
+  // Mari:  muito confiável, 0 faltas
+  // ─────────────────────────────────────────
+  const statsData = [
     {
-      label: "Violão elétrico",
-      category: "Instrumentos",
-      is_critical: true,
-      assignedTo: mPedro.id,
-      status: "CHECKED" as const,
+      memberId: mPedro.id,
+      confirmedOnTime: 6,
+      confirmedLate: 0,
+      absences: 0,
+      deadlineMisses: 0,
+      swapsRequested: 0,
+      swapsAccepted: 1,
+      reliabilityScore: 100,
     },
     {
-      label: "Cabo P10 (2x)",
-      category: "Cabos",
-      is_critical: false,
-      assignedTo: mPedro.id,
-      status: "CHECKED" as const,
+      memberId: mLucas.id,
+      confirmedOnTime: 4,
+      confirmedLate: 1,
+      absences: 0,
+      deadlineMisses: 1,
+      swapsRequested: 0,
+      swapsAccepted: 0,
+      reliabilityScore: 87.5,
     },
     {
-      label: "DI Box",
-      category: "Equipamento",
-      is_critical: true,
-      assignedTo: null,
-      status: "PENDING" as const,
+      memberId: mAna.id,
+      confirmedOnTime: 4,
+      confirmedLate: 0,
+      absences: 0,
+      deadlineMisses: 1,
+      swapsRequested: 1,
+      swapsAccepted: 0,
+      reliabilityScore: 90,
     },
     {
-      label: "Baixo elétrico",
-      category: "Instrumentos",
-      is_critical: true,
-      assignedTo: mLucas.id,
-      status: "PENDING" as const,
+      memberId: mJoao.id,
+      confirmedOnTime: 2,
+      confirmedLate: 1,
+      absences: 3,
+      deadlineMisses: 0,
+      swapsRequested: 1,
+      swapsAccepted: 0,
+      reliabilityScore: 62.5,
+    },
+    {
+      memberId: mMari.id,
+      confirmedOnTime: 5,
+      confirmedLate: 1,
+      absences: 0,
+      deadlineMisses: 0,
+      swapsRequested: 0,
+      swapsAccepted: 0,
+      reliabilityScore: 97,
     },
   ];
 
-  for (const t of items) {
-    const item = await prisma.techCheckItem.create({
+  for (const s of statsData) {
+    await prisma.memberStats.update({
+      where: { member_id: s.memberId },
       data: {
-        event_id: ev1.id,
-        organization_id: org.id,
-        created_by: pedro.id,
-        label: t.label,
-        category: t.category,
-        is_critical: t.is_critical,
+        confirmed_on_time: s.confirmedOnTime,
+        confirmed_late: s.confirmedLate,
+        absences: s.absences,
+        deadline_misses: s.deadlineMisses,
+        swaps_requested: s.swapsRequested,
+        swaps_accepted: s.swapsAccepted,
+        reliability_score: s.reliabilityScore,
       },
     });
-    if (t.assignedTo) {
-      await prisma.techCheckAssignment.create({
-        data: {
-          item_id: item.id,
-          member_id: t.assignedTo,
-          status: t.status,
-          checked_at: t.status === "CHECKED" ? new Date() : null,
-        },
-      });
-    }
   }
 
   console.log(`
 ✅ Dev seed concluído!
 
 Org:    Jovens Conexão (slug: jovens-conexao)
-Users:  pedrorf.dev@gmail.com (ADMIN)
-        lucas@pulso.app       (LEADER)
-        ana@pulso.app         (MEMBER)
-        joao@pulso.app        (MEMBER)
-        mari@pulso.app        (MEMBER)
+Users:  pedrorf.dev@gmail.com (ADMIN)  — score 100 🏆
+        lucas@pulso.app       (LEADER) — score 87.5
+        ana@pulso.app         (MEMBER) — score 90
+        joao@pulso.app        (MEMBER) — score 62.5 ⚠️ (3 faltas)
+        mari@pulso.app        (MEMBER) — score 97
 Invite: http://localhost:5173/join/dev-invite-token
 API:    http://localhost:3333
   `);

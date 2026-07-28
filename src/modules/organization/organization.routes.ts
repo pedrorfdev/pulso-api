@@ -29,6 +29,17 @@ export async function organizationRoutes(app: FastifyInstance) {
     }
   )
 
+  // GET /organizations/:orgId/invite
+  app.get(
+    '/:orgId/invite',
+    { preHandler: [app.authenticate, requireRole('MEMBER')] },
+    async (req, reply) => {
+      const { orgId } = req.params as { orgId: string }
+      const invite = await orgService.getOrCreateInviteLink(orgId, req.user.sub)
+      return reply.send(invite)
+    }
+  )
+
   // PATCH /organizations/:orgId — atualiza config da org (apenas ADMIN)
   app.patch(
     '/:orgId',
