@@ -246,7 +246,6 @@ export class OrganizationService {
       organization: member.organization, // ← adicionar isso
     };
 
-    // cria stats se não existir
     await this.db.memberStats.upsert({
       where: { member_id: member.id },
       update: {},
