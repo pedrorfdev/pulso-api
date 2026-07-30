@@ -305,9 +305,7 @@ export class ScheduleService {
       throw new BadRequestError("Prazo de confirmação encerrado");
     }
 
-    if (attendance.status === "CONFIRMED") {
-      throw new BadRequestError("Presença já confirmada anteriormente");
-    }
+    // ← removido: if (attendance.status === "CONFIRMED") throw ...
 
     const updated = await this.db.attendance.update({
       where: { id: attendanceId },
@@ -318,8 +316,7 @@ export class ScheduleService {
       },
     });
 
-    // atualiza stats do membro
-    await this.updateMemberStats(memberId, data.status);
+    await this.updateMemberStats(memberId, data.status, attendance.status);
 
     return {
       id: updated.id,
@@ -338,18 +335,32 @@ export class ScheduleService {
     return event;
   }
 
-  private async updateMemberStats(memberId: string, status: string) {
+  private async updateMemberStats(
+    memberId: string,
+    newStatus: string,
+    previousStatus?: string,
+  ) {
     await this.db.memberStats.upsert({
       where: { member_id: memberId },
       update: {
+        // Decrementa o status anterior se existia
         confirmed_on_time:
-          status === "CONFIRMED" ? { increment: 1 } : undefined,
-        absences: status === "DECLINED" ? { increment: 1 } : undefined,
+          newStatus === "CONFIRMED"
+            ? { increment: 1 }
+            : previousStatus === "CONFIRMED"
+              ? { decrement: 1 }
+              : undefined,
+        absences:
+          newStatus === "DECLINED"
+            ? { increment: 1 }
+            : previousStatus === "DECLINED"
+              ? { decrement: 1 }
+              : undefined,
       },
       create: {
         member_id: memberId,
-        confirmed_on_time: status === "CONFIRMED" ? 1 : 0,
-        absences: status === "DECLINED" ? 1 : 0,
+        confirmed_on_time: newStatus === "CONFIRMED" ? 1 : 0,
+        absences: newStatus === "DECLINED" ? 1 : 0,
       },
     });
   }
