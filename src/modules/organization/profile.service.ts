@@ -1,8 +1,5 @@
 import { PrismaClient } from "../../lib/prisma/generated/client.js";
-import {
-  NotFoundError,
-  ForbiddenError,
-} from "../../shared/errors/app-error.js";
+import { NotFoundError } from "../../shared/errors/app-error.js";
 import type {
   UpdateProfileBody,
   MemberProfileResponse,
@@ -167,15 +164,6 @@ export class ProfileService {
             attendance: true,
           },
         },
-        tech_items: {
-          include: {
-            assignments: {
-              include: {
-                member: { include: { user: { select: { name: true } } } },
-              },
-            },
-          },
-        },
         songs: {
           orderBy: { order: "asc" },
           include: {
@@ -224,17 +212,6 @@ export class ProfileService {
         order: es.order,
         notes: es.notes,
         ...es.song,
-      })),
-      tech_check: event.tech_items.map((item) => ({
-        id: item.id,
-        label: item.label,
-        category: item.category,
-        is_critical: item.is_critical,
-        assignments: item.assignments.map((a) => ({
-          status: a.status,
-          checked_at: a.checked_at,
-          member_name: a.member.user.name,
-        })),
       })),
     }));
   }
