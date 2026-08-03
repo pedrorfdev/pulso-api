@@ -6,7 +6,7 @@ async function start() {
   const app = await buildApp();
 
   try {
-    await app.listen({ port: env.PORT, host: "::1" });
+    await app.listen({ port: env.PORT, host: "0.0.0.0" });
     console.log(`🚀 Pulso API rodando na porta ${env.PORT} [${env.NODE_ENV}]`);
   } catch (err) {
     app.log.error(err);

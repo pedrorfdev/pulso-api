@@ -180,8 +180,6 @@ export class ProfileService {
       },
     });
 
-    // no histórico geral, justificativas individuais seguem a config da org
-    // (lider sempre vê, membros só veem se justifications_public = true)
     const canSeeJustifications = isLeader || org.justifications_public;
 
     return events.map((event) => ({
