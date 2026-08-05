@@ -28,10 +28,28 @@ export async function buildApp() {
 
   // ── segurança
   await app.register(helmet);
+  const allowedOrigins = [
+    env.FRONTEND_URL,
+    "https://rpulso.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+  ];
+
   await app.register(cors, {
-    origin: env.NODE_ENV === "development" ? true : env.FRONTEND_URL,
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      const cleanOrigin = origin.replace(/\/$/, "");
+      if (
+        env.NODE_ENV === "development" ||
+        allowedOrigins.includes(cleanOrigin) ||
+        cleanOrigin.endsWith(".vercel.app")
+      ) {
+        return cb(null, true);
+      }
+      return cb(new Error("CORS origin not allowed"), false);
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
   await app.register(cookie);
   await app.register(jwt, {

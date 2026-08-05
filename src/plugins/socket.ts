@@ -10,12 +10,30 @@ declare module 'fastify' {
 }
 
 export const socketPlugin = fp(async (app: FastifyInstance) => {
+  const allowedOrigins = [
+    env.FRONTEND_URL,
+    "https://rpulso.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+  ];
+
   const io = new Server(app.server, {
     cors: {
-      origin: env.FRONTEND_URL,
+      origin: (origin, cb) => {
+        if (!origin) return cb(null, true);
+        const cleanOrigin = origin.replace(/\/$/, "");
+        if (
+          env.NODE_ENV === "development" ||
+          allowedOrigins.includes(cleanOrigin) ||
+          cleanOrigin.endsWith(".vercel.app")
+        ) {
+          return cb(null, true);
+        }
+        return cb(new Error("CORS origin not allowed"), false);
+      },
       credentials: true,
     },
-  })
+  });
 
   // autenticação no WebSocket — valida o JWT no handshake
   io.use((socket, next) => {
