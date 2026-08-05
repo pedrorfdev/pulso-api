@@ -63,11 +63,11 @@ describe('ScheduleService', () => {
       const org = await createTestOrg(user.id, 'org-ev1')
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto de Domingo',
+        title: 'Evento de Domingo',
         starts_at: futureDate(7),
       })
 
-      expect(event.title).toBe('Culto de Domingo')
+      expect(event.title).toBe('Evento de Domingo')
       expect(event.is_published).toBe(false)
 
       // deadline = starts_at - 48h
@@ -98,7 +98,7 @@ describe('ScheduleService', () => {
       const member = await getOrgMember(user.id, org.id)
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto',
+        title: 'Evento',
         starts_at: futureDate(7),
       })
 
@@ -117,7 +117,7 @@ describe('ScheduleService', () => {
       const org = await createTestOrg(user.id, 'org-slot1b')
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto com poucas pessoas',
+        title: 'Evento com poucas pessoas',
         starts_at: futureDate(7),
       })
 
@@ -148,7 +148,7 @@ describe('ScheduleService', () => {
       const org = await createTestOrg(user.id, 'org-slot1c')
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto replace',
+        title: 'Evento replace',
         starts_at: futureDate(7),
       })
 
@@ -172,7 +172,7 @@ describe('ScheduleService', () => {
       const org = await createTestOrg(user.id, 'org-slot1d')
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto dedup',
+        title: 'Evento dedup',
         starts_at: futureDate(7),
       })
 
@@ -196,7 +196,7 @@ describe('ScheduleService', () => {
       const org = await createTestOrg(user.id, 'org-slot2')
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto vazio',
+        title: 'Evento vazio',
         starts_at: futureDate(7),
       })
 
@@ -210,7 +210,7 @@ describe('ScheduleService', () => {
       const org = await createTestOrg(user.id, 'org-slot3')
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto publicado',
+        title: 'Evento publicado',
         starts_at: futureDate(7),
       })
 
@@ -240,7 +240,7 @@ describe('ScheduleService', () => {
       })
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto confirm',
+        title: 'Evento confirm',
         starts_at: futureDate(7),
       })
 
@@ -281,7 +281,7 @@ describe('ScheduleService', () => {
       })
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto dup',
+        title: 'Evento dup',
         starts_at: futureDate(7),
       })
 
@@ -318,7 +318,7 @@ describe('ScheduleService', () => {
       })
 
       const event = await scheduleService.createEvent(org.id, user.id, {
-        title: 'Culto sem just',
+        title: 'Evento sem just',
         starts_at: futureDate(7),
       })
 

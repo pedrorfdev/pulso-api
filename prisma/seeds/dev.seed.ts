@@ -43,7 +43,7 @@ async function seedDev() {
     create: {
       name: "Jovens Conexão",
       slug: "jovens-conexao",
-      description: "Ministério de louvor dos jovens",
+      description: "Equipe de música dos jovens",
       confirmation_deadline_hours: 48,
       absences_public: true,
       justifications_public: false,
@@ -158,7 +158,7 @@ async function seedDev() {
   // ─────────────────────────────────────────
 
   // Evento -42 dias
-  const evP1 = await createEvent("Culto de Domingo", -42, true);
+  const evP1 = await createEvent("Evento de Domingo", -42, true);
   await addSlot(evP1.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 44 * 86400000));
   await addSlot(evP1.id, mLucas.id, ["Baixo elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 44 * 86400000));
   await addSlot(evP1.id, mAna.id, ["Teclado"], "CONFIRMED", undefined, new Date(Date.now() - 44 * 86400000));
@@ -173,7 +173,7 @@ async function seedDev() {
   await addSlot(evP2.id, mMari.id, ["Vocal"], "CONFIRMED", undefined, new Date(Date.now() - 37 * 86400000));
 
   // Evento -28 dias
-  const evP3 = await createEvent("Culto de Domingo", -28, true);
+  const evP3 = await createEvent("Evento de Domingo", -28, true);
   await addSlot(evP3.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 30 * 86400000));
   await addSlot(evP3.id, mLucas.id, ["Baixo elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 29 * 86400000));
   await addSlot(evP3.id, mAna.id, ["Teclado"], "CONFIRMED", undefined, new Date(Date.now() - 30 * 86400000));
@@ -181,7 +181,7 @@ async function seedDev() {
   await addSlot(evP3.id, mMari.id, ["Vocal", "Backing vocal"], "CONFIRMED", undefined, new Date(Date.now() - 30 * 86400000));
 
   // Evento -21 dias
-  const evP4 = await createEvent("Culto Especial", -21, true, "Auditório Central");
+  const evP4 = await createEvent("Evento Especial", -21, true, "Auditório Central");
   await addSlot(evP4.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 23 * 86400000));
   await addSlot(evP4.id, mLucas.id, ["Baixo elétrico"], "DEADLINE_MISSED");
   await addSlot(evP4.id, mAna.id, ["Teclado"], "CONFIRMED", undefined, new Date(Date.now() - 23 * 86400000));
@@ -189,7 +189,7 @@ async function seedDev() {
   await addSlot(evP4.id, mMari.id, ["Vocal"], "CONFIRMED", undefined, new Date(Date.now() - 23 * 86400000));
 
   // Evento -14 dias
-  const evP5 = await createEvent("Culto de Domingo", -14, true);
+  const evP5 = await createEvent("Evento de Domingo", -14, true);
   await addSlot(evP5.id, mPedro.id, ["Violão elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 16 * 86400000));
   await addSlot(evP5.id, mLucas.id, ["Baixo elétrico"], "CONFIRMED", undefined, new Date(Date.now() - 16 * 86400000));
   await addSlot(evP5.id, mJoao.id, ["Bateria"], "DECLINED", "Compromisso familiar");
@@ -208,7 +208,7 @@ async function seedDev() {
   // ─────────────────────────────────────────
 
   // Evento principal — próxima semana
-  const ev1 = await createEvent("Culto de Domingo", 7, true);
+  const ev1 = await createEvent("Evento de Domingo", 7, true);
   await addSlot(ev1.id, mPedro.id, ["Violão elétrico"], "CONFIRMED");
   await addSlot(ev1.id, mLucas.id, ["Baixo elétrico"], "PENDING");
   await addSlot(ev1.id, mAna.id, ["Teclado"], "CONFIRMED");
@@ -222,13 +222,13 @@ async function seedDev() {
   await addSlot(ev2.id, mAna.id, ["Teclado"], "CONFIRMED");
 
   // Próximo domingo — daqui 14 dias
-  const ev3 = await createEvent("Culto de Domingo", 14, true);
+  const ev3 = await createEvent("Evento de Domingo", 14, true);
   await addSlot(ev3.id, mPedro.id, ["Violão elétrico"], "PENDING");
   await addSlot(ev3.id, mJoao.id, ["Bateria"], "PENDING");
   await addSlot(ev3.id, mMari.id, ["Vocal"], "PENDING");
 
   // Rascunho
-  await createEvent("Culto Especial", 21, false);
+  await createEvent("Evento Especial", 21, false);
 
   // ─────────────────────────────────────────
   // SONGS

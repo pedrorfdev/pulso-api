@@ -22,7 +22,7 @@ async function setup() {
     data: {
       organization_id: org.id,
       created_by: user.id,
-      title: 'Culto',
+      title: 'Evento',
       starts_at: startsAt,
       confirmation_deadline: new Date(startsAt.getTime() - 48 * 60 * 60 * 1000),
       is_published: true,
@@ -49,7 +49,7 @@ describe('SongService', () => {
   })
 
   describe('createSong', () => {
-    it('deve criar um louvor na biblioteca da org', async () => {
+    it('deve criar uma música na biblioteca da org', async () => {
       const { user, org } = await setup()
 
       const song = await songService.createSong(org.id, user.id, {
@@ -66,7 +66,7 @@ describe('SongService', () => {
   })
 
   describe('listOrgSongs', () => {
-    it('deve listar louvores da org em ordem alfabética', async () => {
+    it('deve listar músicas da org em ordem alfabética', async () => {
       const { user, org } = await setup()
 
       await songService.createSong(org.id, user.id, { title: 'Teu Reino', link_type: 'NONE' })
@@ -80,7 +80,7 @@ describe('SongService', () => {
   })
 
   describe('addSongToEvent / listEventSongs', () => {
-    it('deve adicionar louvor ao evento e listar em ordem', async () => {
+    it('deve adicionar música ao evento e listar em ordem', async () => {
       const { user, org, event } = await setup()
 
       const song1 = await songService.createSong(org.id, user.id, { title: 'Nada Além', link_type: 'NONE' })
@@ -96,7 +96,7 @@ describe('SongService', () => {
       expect(eventSongs[1].song.title).toBe('Nada Além') // order 2
     })
 
-    it('deve lançar ConflictError ao adicionar louvor duplicado', async () => {
+    it('deve lançar ConflictError ao adicionar música duplicada', async () => {
       const { user, org, event } = await setup()
 
       const song = await songService.createSong(org.id, user.id, { title: 'Oceanos', link_type: 'NONE' })
@@ -109,7 +109,7 @@ describe('SongService', () => {
   })
 
   describe('removeSongFromEvent', () => {
-    it('deve remover louvor do evento', async () => {
+    it('deve remover música do evento', async () => {
       const { user, org, event } = await setup()
 
       const song = await songService.createSong(org.id, user.id, { title: 'Oceanos', link_type: 'NONE' })
@@ -123,7 +123,7 @@ describe('SongService', () => {
   })
 
   describe('deleteSong', () => {
-    it('deve lançar NotFoundError ao deletar louvor inexistente', async () => {
+    it('deve lançar NotFoundError ao deletar música inexistente', async () => {
       const { org } = await setup()
 
       await expect(

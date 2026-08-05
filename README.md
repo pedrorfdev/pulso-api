@@ -1,6 +1,6 @@
 # Pulso API
 
-API do Pulso — sistema de sincronização operacional para times de louvor. Backend em Fastify + TypeScript, banco PostgreSQL via Prisma ORM.
+API do Pulso — sistema de sincronização operacional para equipes de música e eventos. Backend em Fastify + TypeScript, banco PostgreSQL via Prisma ORM.
 
 > "Tudo sincronizado." Pulso substitui mensagens perdidas, confirmações incertas e trocas de escala caóticas por clareza, ritmo e visibilidade em tempo real.
 
@@ -62,7 +62,7 @@ src/
 │   ├── organization/           # orgs, membros, convites, notificações, stats
 │   ├── schedule/                # eventos, slots, attendance
 │   ├── swap/                    # trocas de escala com aprovação em cadeia
-│   ├── song/                    # biblioteca de louvores
+│   ├── song/                    # biblioteca de músicas
 │   └── tech-check/              # checklist técnico pré-evento
 │
 └── jobs/
@@ -88,17 +88,17 @@ Multi-tenant com isolamento por `organization_id` em um único banco. RBAC com t
 
 ```
 User              → conta Google, dados pessoais
-Organization      → workspace isolado (igreja, grupo)
+Organization      → workspace isolado (equipe, grupo)
 OrganizationMember → vínculo user↔org com role e nickname
 InviteLink         → links de convite com expiração e limite de usos
 
-Event              → evento (culto, ensaio)
+Event              → evento (ensaio, show, evento)
 ScheduleSlot        → membro escalado com função (violão, baixo...)
 Attendance          → confirmação de presença do slot
 
 SwapRequest         → troca de escala (cadeia: target → líder)
-Song                → biblioteca de louvores da org
-EventSong            → louvor vinculado a um evento, com ordem
+Song                → biblioteca de músicas da org
+EventSong            → música vinculada a um evento, com ordem
 
 TechCheckItem        → item de checklist técnico do evento
 TechCheckAssignment   → responsável por um item
@@ -224,7 +224,7 @@ O banco fica no Neon (free tier, sem sleep) e a API no Railway. A `DATABASE_URL`
 
 - Documentação automática com Swagger (`@fastify/swagger`)
 - Google Calendar sync
-- Autocomplete de Spotify/YouTube ao adicionar louvores
+- Autocomplete de Spotify/YouTube ao adicionar músicas
 - Módulo financeiro (despesas por evento)
 - App nativo (Play Store / App Store) — PWA valida primeiro
 - Possível agente de IA para sorteio/sugestão automática de escalas

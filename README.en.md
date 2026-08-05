@@ -1,6 +1,6 @@
 # Pulso API
 
-Pulso's backend — an operational synchronization system for worship teams. Built with Fastify + TypeScript, PostgreSQL via Prisma ORM.
+Pulso's backend — an operational synchronization system for music and event teams. Built with Fastify + TypeScript, PostgreSQL via Prisma ORM.
 
 > "Always in sync." Pulso replaces lost messages, uncertain confirmations, and chaotic schedule swaps with clarity, rhythm, and real-time visibility.
 

@@ -64,7 +64,7 @@ describe('DeadlineJob', () => {
       data: {
         organization_id: org.id,
         created_by: user.id,
-        title: 'Culto passado',
+        title: 'Evento passado',
         starts_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
         confirmation_deadline: pastDate,
         is_published: true,
@@ -105,7 +105,7 @@ describe('DeadlineJob', () => {
       data: {
         organization_id: org.id,
         created_by: user.id,
-        title: 'Culto futuro',
+        title: 'Evento futuro',
         starts_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         confirmation_deadline: futureDeadline,
         is_published: true,

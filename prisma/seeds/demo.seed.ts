@@ -17,8 +17,8 @@ async function seedDemo() {
     });
 
   const admin = await createUser(
-    "Pedro Ferreira",
-    "pedrorf.dev@gmail.com",
+    "Ana Demo (Admin)",
+    "demo.admin@pulso.app",
     "demo_admin",
   );
   const leader = await createUser(
@@ -161,7 +161,7 @@ async function seedDemo() {
   };
 
   // ── evento 1: próximo domingo (principal — confirmações mistas)
-  const event1 = await createEvent("Culto de Domingo", 5, true);
+  const event1 = await createEvent("Evento de Domingo", 5, true);
   await addSlot(event1.id, mAdmin.id, ["Violão elétrico"], "CONFIRMED");
   await addSlot(event1.id, mLeader.id, ["Baixo elétrico"], "CONFIRMED");
   await addSlot(event1.id, mCarla.id, ["Teclado"], "PENDING");
@@ -175,7 +175,7 @@ async function seedDemo() {
   await addSlot(event1.id, mElena.id, ["Vocal"], "PENDING");
 
   // ── evento 2: daqui 12 dias
-  const event2 = await createEvent("Culto de Domingo", 12, true);
+  const event2 = await createEvent("Evento de Domingo", 12, true);
   await addSlot(event2.id, mAdmin.id, ["Violão elétrico"], "PENDING");
   await addSlot(event2.id, mCarla.id, ["Teclado"], "CONFIRMED");
   await addSlot(event2.id, mDiego.id, ["Bateria"], "PENDING");
@@ -190,7 +190,7 @@ async function seedDemo() {
   await addSlot(event3.id, mElena.id, ["Vocal"], "CONFIRMED");
 
   // ── evento 4: rascunho (não publicado)
-  await createEvent("Culto Especial de Natal", 30, false);
+  await createEvent("Evento Especial", 30, false);
 
   // ── swap pendente (troca entre Carla e Diego no evento 1)
   const slotCarlaEv1 = await prisma.scheduleSlot.findFirst({

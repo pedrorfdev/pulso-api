@@ -36,7 +36,7 @@ async function setup() {
     data: {
       organization_id: org.id,
       created_by: leader.id,
-      title: 'Culto',
+      title: 'Evento',
       starts_at: startsAt,
       confirmation_deadline: new Date(startsAt.getTime() - 48 * 60 * 60 * 1000),
       is_published: true,

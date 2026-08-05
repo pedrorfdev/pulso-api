@@ -1,7 +1,7 @@
 {
   "name": "pulso-api",
   "version": "0.1.0",
-  "description": "Pulso — worship team scheduling API",
+  "description": "Pulso — music team scheduling API",
   "type": "module",
   "main": "dist/server.js",
   "scripts": {

@@ -86,7 +86,7 @@ export class SongService {
     const existing = await this.db.eventSong.findUnique({
       where: { event_id_song_id: { event_id: eventId, song_id: data.song_id } },
     });
-    if (existing) throw new ConflictError("Louvor já adicionado a este evento");
+    if (existing) throw new ConflictError("Música já adicionada a este evento");
 
     const eventSong = await this.db.eventSong.create({
       data: {
