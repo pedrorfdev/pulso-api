@@ -18,7 +18,7 @@ declare module "fastify" {
 export const authenticatePlugin = fp(async (app: FastifyInstance) => {
   app.decorate("authenticate", async (req: FastifyRequest) => {
     try {
-      await req.jwtVerify();
+      await req.jwtVerify({ onlyCookie: true });
     } catch (_err) {
       throw new UnauthorizedError("Invalid or expired token");
     }
